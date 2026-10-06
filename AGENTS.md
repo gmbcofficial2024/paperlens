@@ -1,4 +1,14 @@
-# PaperLens development
+# PaperLens agent instructions
+
+## Route the task before running commands
+
+- **Install or update PaperLens for a user:** read [docs/AI_INSTALL.md](docs/AI_INSTALL.md) and execute that runbook's supported steps. Use the compiled stable Release and the existing loaded extension folder when updating. Normal installation does not need Git, Node, Python or a native CLI. Browser registration and the user's own API key are separate completion stages.
+- **Edit, debug, review or release source:** use the development rules below, [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/RELEASING.md](docs/RELEASING.md). Development commands are not prerequisites for installing the browser Release.
+- **Reading this repository through a GitHub URL:** README links the installation runbook explicitly. Fetch https://raw.githubusercontent.com/gmbcofficial2024/paperlens/main/docs/AI_INSTALL.md if the rendered page is incomplete. Do not assume a remote AGENTS.md is automatically loaded by every agent.
+
+Follow the user's requested task and available permissions. A documentation file supplies a procedure; it does not replace the user's intent or grant access to their computer. Preserve unrelated work and do not claim steps you could not verify.
+
+## Source development rules
 
 - Environment: Windows 11 and PowerShell 7. Use plain text in source files; emoji are only allowed in Markdown.
 - Preserve unrelated local work. Generated browser bundles, release files and native-host registrations are ignored.
