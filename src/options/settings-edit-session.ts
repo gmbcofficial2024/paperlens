@@ -1,5 +1,7 @@
 import { sendRuntimeMessage } from "../shared/messages";
 import { PROVIDERS, listProviders } from "../shared/providers";
+import { DISTRIBUTION_API_MODEL, IS_DISTRIBUTION } from "../shared/distribution-policy";
+import { mergeSettings } from "../shared/schema";
 import type {
   ExtensionSettings,
   ProviderId,
@@ -183,7 +185,25 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
 
   async start(): Promise<void> {
     this.bindEvents();
+    if (IS_DISTRIBUTION) this.configureDistributionControls();
     await this.loadSettings();
+  }
+
+  private configureDistributionControls(): void {
+    for (const option of [...this.summaryProviderSelect.options]) {
+      if (!["gemini", "codex", "claude"].includes(option.value)) option.remove();
+    }
+    for (const id of ["translation-distribution-model-note", "summary-distribution-model-note"]) {
+      this.dependencies.document.getElementById(id)?.classList.remove("hidden");
+    }
+    const summaryHelp = this.dependencies.document.getElementById("summary-provider-help");
+    if (summaryHelp) summaryHelp.textContent = "Google Gemini API uses Gemini Flash Latest. Optional Codex and Claude require a separately installed Native Messaging host and a logged-in CLI.";
+    const quickStart = this.dependencies.document.getElementById("api-quick-start-help");
+    if (quickStart) quickStart.textContent = "Enter your own Gemini API key, then click Save Settings. A blank Gemini summary key reuses that saved key. No local CLI is needed.";
+    this.populateProviders();
+    this.populateModels("gemini");
+    this.populateSummaryModels();
+    this.setProviderSaveControlsDisabled(false);
   }
 
   private bindEvents(): void {
@@ -212,13 +232,19 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
 
   private setProviderSaveControlsDisabled(disabled: boolean): void {
     for (const control of this.providerSaveControls) {
-      control.disabled = disabled;
+      const fixedInDistribution = IS_DISTRIBUTION && (
+        control === this.providerSelect || control === this.modelSelect ||
+        control === this.customModelInput || control === this.customUrlInput
+      );
+      control.disabled = disabled || fixedInDistribution;
     }
+    this.summaryGeminiModelSelect.disabled = IS_DISTRIBUTION;
+    this.summaryVertexModelSelect.disabled = IS_DISTRIBUTION;
   }
 
   private populateProviders(): void {
     this.providerSelect.innerHTML = "";
-    for (const provider of listProviders()) {
+    for (const provider of IS_DISTRIBUTION ? [PROVIDERS.gemini] : listProviders()) {
       const option = this.dependencies.document.createElement("option");
       option.value = provider.id;
       option.textContent = provider.name;
@@ -228,6 +254,17 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
 
   private populateModels(providerId: ProviderId): void {
     this.modelSelect.innerHTML = "";
+    if (IS_DISTRIBUTION) {
+      const option = this.dependencies.document.createElement("option");
+      option.value = DISTRIBUTION_API_MODEL;
+      option.textContent = `Gemini Flash Latest (${DISTRIBUTION_API_MODEL})`;
+      this.modelSelect.appendChild(option);
+      this.modelSelect.disabled = true;
+      this.modelField.classList.remove("hidden");
+      this.customModelField.classList.add("hidden");
+      this.customUrlField.classList.add("hidden");
+      return;
+    }
     const provider = PROVIDERS[providerId];
     const hasFixedModels = provider.models.length > 0;
 
@@ -256,7 +293,7 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
   private readDisplayedProviderDraft(providerId: ProviderId): ProviderDraft {
     return {
       apiKey: this.apiKeyInput.value,
-      model: PROVIDERS[providerId].models.length === 0
+      model: IS_DISTRIBUTION ? DISTRIBUTION_API_MODEL : PROVIDERS[providerId].models.length === 0
         ? this.customModelInput.value
         : this.modelSelect.value,
       customUrl: this.customUrlInput.value,
@@ -265,7 +302,9 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
 
   private renderProviderDraft(providerId: ProviderId, draft: ProviderDraft): void {
     this.apiKeyInput.value = draft.apiKey;
-    if (PROVIDERS[providerId].models.length === 0) {
+    if (IS_DISTRIBUTION) {
+      this.modelSelect.value = DISTRIBUTION_API_MODEL;
+    } else if (PROVIDERS[providerId].models.length === 0) {
       this.customModelInput.value = draft.model;
     } else {
       this.modelSelect.value = draft.model || PROVIDERS[providerId].defaultModel;
@@ -275,7 +314,10 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
 
   private populateSummaryModels(): void {
     this.summaryGeminiModelSelect.innerHTML = "";
-    for (const model of PROVIDERS.gemini.models) {
+    const geminiModels = IS_DISTRIBUTION
+      ? [{ id: DISTRIBUTION_API_MODEL, label: `Gemini Flash Latest (${DISTRIBUTION_API_MODEL})` }]
+      : PROVIDERS.gemini.models;
+    for (const model of geminiModels) {
       const option = this.dependencies.document.createElement("option");
       option.value = model.id;
       option.textContent = model.label;
@@ -289,6 +331,8 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
       option.textContent = model.label;
       this.summaryVertexModelSelect.appendChild(option);
     }
+    this.summaryGeminiModelSelect.disabled = IS_DISTRIBUTION;
+    this.summaryVertexModelSelect.disabled = IS_DISTRIBUTION;
   }
 
   private showSummaryProviderFields(providerId: SummaryProviderId): void {
@@ -300,6 +344,10 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
 
   private changeProvider(): void {
     if (!this.providerDrafts || !this.displayedProviderId) return;
+    if (IS_DISTRIBUTION) {
+      this.providerSelect.value = "gemini";
+      return;
+    }
 
     this.providerDrafts = replaceDraft(
       this.providerDrafts,
@@ -320,34 +368,35 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
         return;
       }
 
-      this.savedSettingsBaseline = response.settings;
-      this.providerDrafts = buildDraftSet(response.settings.providerSettings);
+      const settings = IS_DISTRIBUTION ? mergeSettings(response.settings) : response.settings;
+      this.savedSettingsBaseline = settings;
+      this.providerDrafts = buildDraftSet(settings.providerSettings);
       this.populateProviders();
-      this.providerSelect.value = response.settings.currentProvider;
-      this.displayedProviderId = response.settings.currentProvider;
-      this.populateModels(response.settings.currentProvider);
+      this.providerSelect.value = settings.currentProvider;
+      this.displayedProviderId = settings.currentProvider;
+      this.populateModels(settings.currentProvider);
       this.renderProviderDraft(
-        response.settings.currentProvider,
-        this.providerDrafts[response.settings.currentProvider],
+        settings.currentProvider,
+        this.providerDrafts[settings.currentProvider],
       );
 
-      this.concurrencyInput.value = String(response.settings.maxConcurrency);
-      this.customPromptInput.value = response.settings.customPrompt ?? "";
-      this.cacheEnabledInput.checked = response.settings.cacheEnabled;
+      this.concurrencyInput.value = String(settings.maxConcurrency);
+      this.customPromptInput.value = settings.customPrompt ?? "";
+      this.cacheEnabledInput.checked = settings.cacheEnabled;
 
       this.populateSummaryModels();
-      this.summaryAutoGenerateInput.checked = response.settings.summary.autoGenerate;
-      this.summaryProviderSelect.value = response.settings.summary.provider;
-      this.showSummaryProviderFields(response.settings.summary.provider);
-      this.summaryCodexModelInput.value = response.settings.summary.codexModel ?? "";
-      this.summaryClaudeModelInput.value = response.settings.summary.claudeModel ?? "";
-      this.summaryGeminiApiKeyInput.value = response.settings.summary.geminiApiKey ?? "";
-      this.summaryGeminiModelSelect.value = response.settings.summary.geminiModel
+      this.summaryAutoGenerateInput.checked = settings.summary.autoGenerate;
+      this.summaryProviderSelect.value = settings.summary.provider;
+      this.showSummaryProviderFields(settings.summary.provider);
+      this.summaryCodexModelInput.value = settings.summary.codexModel ?? "";
+      this.summaryClaudeModelInput.value = settings.summary.claudeModel ?? "";
+      this.summaryGeminiApiKeyInput.value = settings.summary.geminiApiKey ?? "";
+      this.summaryGeminiModelSelect.value = settings.summary.geminiModel
         || PROVIDERS.gemini.defaultModel;
-      this.summaryVertexApiKeyInput.value = response.settings.summary.vertexApiKey ?? "";
-      this.summaryVertexModelSelect.value = response.settings.summary.vertexModel
+      this.summaryVertexApiKeyInput.value = settings.summary.vertexApiKey ?? "";
+      this.summaryVertexModelSelect.value = settings.summary.vertexModel
         || PROVIDERS.vertex.defaultModel;
-      this.summaryPromptInput.value = response.settings.summary.prompt;
+      this.summaryPromptInput.value = settings.summary.prompt;
     } catch {
       this.showToast("Failed to load settings");
     }
@@ -380,7 +429,7 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
     const baseline = this.savedSettingsBaseline;
     if (!baseline) throw new Error("Settings baseline is unavailable");
 
-    return {
+    const snapshot: ExtensionSettings = {
       currentProvider,
       providerSettings,
       cacheEnabled: this.cacheEnabledInput.checked,
@@ -399,6 +448,7 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
         vertexModel: this.summaryVertexModelSelect.value || undefined,
       },
     };
+    return IS_DISTRIBUTION ? mergeSettings(snapshot) : snapshot;
   }
 
   private async save(): Promise<void> {
@@ -425,7 +475,7 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
 
     try {
       const customUrl = providerSettings.custom.customUrl;
-      if (customUrl) {
+      if (customUrl && !IS_DISTRIBUTION) {
         let granted: boolean;
         try {
           granted = await this.ensureCustomUrlPermission(customUrl);
@@ -448,10 +498,11 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
         return;
       }
 
-      this.savedSettingsBaseline = response.settings;
-      this.providerDrafts = buildDraftSet(response.settings.providerSettings);
-      this.providerSelect.value = response.settings.currentProvider;
-      this.displayedProviderId = response.settings.currentProvider;
+      const settings = IS_DISTRIBUTION ? mergeSettings(response.settings) : response.settings;
+      this.savedSettingsBaseline = settings;
+      this.providerDrafts = buildDraftSet(settings.providerSettings);
+      this.providerSelect.value = settings.currentProvider;
+      this.displayedProviderId = settings.currentProvider;
       this.populateModels(this.displayedProviderId);
       this.renderProviderDraft(
         this.displayedProviderId,

@@ -224,7 +224,7 @@
 
     <section class="panel" aria-label="Quick start">
       <h2>Start with one API key</h2>
-      <p class="panel-note">Choose Google Gemini, enter your own API key, then click Save Settings. A blank Gemini summary key reuses that saved key. No local CLI is needed.</p>
+      <p class="panel-note" id="api-quick-start-help">Choose Google Gemini, enter your own API key, then click Save Settings. A blank Gemini summary key reuses that saved key. No local CLI is needed.</p>
       <p class="panel-note">Open a paper or article and press Alt+T to translate or Alt+S to summarize. Requests use your provider account and may incur API charges. Only content loaded on the page can be read.</p>
     </section>
 
@@ -248,6 +248,7 @@
         <div class="field" id="model-field">
           <label for="model">Model</label>
           <select id="model"></select>
+          <div class="help-text hidden" id="translation-distribution-model-note">Fixed in shared release: Gemini Flash Latest (gemini-flash-latest).</div>
         </div>
         <div class="field hidden" id="custom-model-field">
           <label for="custom-model">Custom Model</label>
@@ -308,7 +309,7 @@
             <option value="codex">Codex CLI (advanced local setup)</option>
             <option value="claude">Claude CLI (advanced local setup)</option>
           </select>
-          <div class="help-text">Gemini and Vertex work directly with your API keys. Optional Codex and Claude require a separately installed Native Messaging host and a logged-in CLI.</div>
+          <div class="help-text" id="summary-provider-help">Gemini and Vertex work directly with your API keys. Optional Codex and Claude require a separately installed Native Messaging host and a logged-in CLI.</div>
         </div>
       </div>
       <div id="summary-codex-fields" class="grid">
@@ -334,6 +335,7 @@
         <div class="field">
           <label for="summary-gemini-model">Gemini Summary Model</label>
           <select id="summary-gemini-model"></select>
+          <div class="help-text hidden" id="summary-distribution-model-note">Fixed in shared release: Gemini Flash Latest (gemini-flash-latest).</div>
         </div>
       </div>
       <div id="summary-vertex-fields" class="grid hidden">

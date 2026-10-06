@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const watch = process.argv.includes("--watch");
+const distribution = process.argv.includes("--distribution");
 const repoRoot = path.dirname(fileURLToPath(import.meta.url));
 const outdirIndex = process.argv.indexOf("--outdir");
 const customOutdir = outdirIndex >= 0;
@@ -34,6 +35,7 @@ const shared = {
   sourcemap: false,
   logLevel: "info",
   absWorkingDir: repoRoot,
+  define: { __PAPERLENS_DISTRIBUTION__: String(distribution) },
 };
 
 const entryPoints = {

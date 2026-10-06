@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.2
+
+- Fix the shared Release's API translation, summary and connection tests to Gemini Flash Latest (`gemini-flash-latest`).
+- Normalize legacy API provider and Gemini model selections while preserving Gemini keys and optional Codex/Claude native summaries; never reuse another provider's credentials for Gemini.
+- Show the fixed model in Release Settings and enforce the same restriction at the API request boundary. Source development builds retain their provider/model choices.
+- Update the user and AI-agent installation instructions for the fixed Release model.
+
 ## 1.1.1
 
 - Prepare the first public GitHub distribution with the MIT project license, release checksums, Windows install/update helper, and automated release checks.

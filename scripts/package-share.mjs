@@ -96,7 +96,7 @@ function createZip(entries) {
 
 function buildBrowserFiles(directory) {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [path.join(repoRoot, "build.mjs"), "--outdir", directory], {
+    const child = spawn(process.execPath, [path.join(repoRoot, "build.mjs"), "--distribution", "--outdir", directory], {
       cwd: repoRoot,
       stdio: "inherit",
     });

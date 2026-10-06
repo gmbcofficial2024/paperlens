@@ -1,4 +1,5 @@
 import { PROVIDERS } from "./providers";
+import { DISTRIBUTION_API_MODEL, IS_DISTRIBUTION } from "./distribution-policy";
 import { SseEventDecoder, type SseEvent } from "./sse";
 import { buildVertexApiKeyUrl, buildVertexBody } from "./vertex";
 import type { ProviderId, ProviderSetting, TokenUsage } from "./types";
@@ -65,7 +66,12 @@ function jsonRequest(
 
 export function prepareProviderRequest(options: ProviderCallOptions): PreparedProviderRequest {
   const { provider, setting, systemPrompt, userPrompt, outputMode, stream } = options;
-  const model = setting.model?.trim() || PROVIDERS[provider].defaultModel;
+  if (IS_DISTRIBUTION && provider !== "gemini") {
+    throw new Error("The distributed edition only supports Gemini API requests.");
+  }
+  const model = IS_DISTRIBUTION
+    ? DISTRIBUTION_API_MODEL
+    : setting.model?.trim() || PROVIDERS[provider].defaultModel;
 
   switch (provider) {
     case "gemini":

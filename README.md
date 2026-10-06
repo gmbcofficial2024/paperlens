@@ -42,7 +42,7 @@ GitHub 배포는 Chrome의 스토어 자동 업데이트를 제공하지 않습�
 ## 처음 사용하기
 
 1. [Google AI Studio](https://aistudio.google.com/apikey)에서 자신의 Gemini API 키를 발급합니다.
-2. PaperLens의 **Settings**에서 **Translation Provider → Google Gemini**를 선택하고 키와 계정에서 사용할 수 있는 모델을 저장합니다.
+2. PaperLens의 **Settings**에서 **Translation Provider → Google Gemini**에 키를 입력합니다. 배포판의 API 모델은 **Gemini Flash Latest (`gemini-flash-latest`)**로 고정되어 있습니다.
 3. **Summary Provider → Google Gemini API**를 선택합니다. 별도 요약 키를 비워 두면 번역용 Gemini 키를 재사용합니다.
 4. **Save Settings**를 누른 뒤 영어 기사나 논문 페이지를 엽니다.
 
@@ -52,7 +52,9 @@ GitHub 배포는 Chrome의 스토어 자동 업데이트를 제공하지 않습�
 | 현재 문서 요약 | `Alt+S` 또는 팝업의 요약 버튼 |
 | 설정 변경 후 적용 | 저장 후 기사 탭 새로고침 |
 
-**Test saved API connection**은 저장된 번역 설정으로 짧은 요청을 보냅니다. 번역·요약·연결 테스트에는 선택한 제공자의 API 요금이 발생할 수 있습니다. 번역 시작 전 자동 요약은 기본적으로 꺼져 있습니다. 다른 번역 제공자와 Vertex 요약도 설정에서 선택할 수 있습니다.
+**Test saved API connection**은 저장된 번역 설정으로 짧은 요청을 보냅니다. 배포판의 번역·API 요약·연결 테스트는 모두 `gemini-flash-latest`를 사용하며 Gemini API 요금이 발생할 수 있습니다. 번역 시작 전 자동 요약은 기본적으로 꺼져 있습니다. Codex·Claude 로컬 요약은 별도 설치 후 사용할 수 있습니다.
+
+기존 배포판의 다른 API 제공자 및 Pro·Lite 모델 설정은 업데이트 시 Gemini Flash Latest 사용으로 전환됩니다. Gemini 키가 없다면 새로 입력해야 하며, 다른 제공자의 키를 Gemini로 복사하지 않습니다. 모델 식별자는 고정되지만 Google이 `latest` 별칭이 가리키는 버전을 갱신할 수 있습니다. [Google 모델 별칭 안내](https://ai.google.dev/gemini-api/docs/models#latest)
 
 API 키는 해당 브라우저 프로필의 로컬 저장소에 보관됩니다. PaperLens 계정이나 공용 API 키는 없습니다. 사용 전 [개인정보 안내](docs/PRIVACY.md)를 확인하세요.
 
@@ -76,7 +78,7 @@ npm run build
 npm run package:share
 ```
 
-`build`는 `dist/`와 기존 개발용 루트 JavaScript 번들을 생성합니다. 확장을 다시 로드하고 기사 탭을 새로고침해 변경을 확인하세요. `package:share`는 `release/`에 설치 ZIP, 체크섬과 Windows 도우미를 생성합니다.
+`build`는 `dist/`와 기존 개발용 루트 JavaScript 번들을 생성하며 개발용 제공자·모델 선택을 유지합니다. 확장을 다시 로드하고 기사 탭을 새로고침해 변경을 확인하세요. `package:share`는 Gemini Flash Latest로 API를 제한한 배포 빌드를 사용해 `release/`에 설치 ZIP, 체크섬과 Windows 도우미를 생성합니다.
 
 `main`에 push하거나 Pull Request를 열면 CI가 검증합니다. 버전 파일을 맞추고 `v<version>` 태그를 push하면 검증 후 GitHub Release가 생성됩니다. [배포 절차](docs/RELEASING.md)와 [기여 안내](CONTRIBUTING.md)를 참고하세요.
 

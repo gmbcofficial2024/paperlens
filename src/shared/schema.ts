@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { applyDistributionPolicy } from "./distribution-policy";
 import {
   PROVIDER_IDS,
   SUMMARY_PROVIDER_IDS,
@@ -80,7 +81,7 @@ export function defaultProviderSettings(): Record<ProviderId, ProviderSetting> {
 }
 
 export function defaultSettings(): ExtensionSettings {
-  return settingsSchema.parse({ providerSettings: defaultProviderSettings() });
+  return applyDistributionPolicy(settingsSchema.parse({ providerSettings: defaultProviderSettings() }));
 }
 
 function normalizeFixedModel(
@@ -104,12 +105,12 @@ export function mergeSettings(raw: unknown): ExtensionSettings {
     : {};
   const providerSettings = migrateProviderSettings(defaults.providerSettings, ps);
   const summary = mergeSummarySettings(defaults.summary, obj.summary);
-  return settingsSchema.parse({
+  return applyDistributionPolicy(settingsSchema.parse({
     ...defaults,
     ...obj,
     providerSettings,
     summary,
-  });
+  }));
 }
 
 function mergeSummarySettings(defaults: SummarySettings, rawSummary: unknown): SummarySettings {

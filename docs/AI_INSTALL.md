@@ -4,7 +4,7 @@ This is the complete installation runbook for a user-requested PaperLens install
 
 Canonical repository: https://github.com/gmbcofficial2024/paperlens
 
-Use the latest stable **compiled Release**, Google Gemini API as the default provider, and the user's own API key. Normal user installation requires Chrome and a key; it does not require cloning source, Git, Node, Python, Codex CLI or Claude CLI. Native Codex/Claude summaries are an optional, separately requested workflow in [NATIVE_INSTALL.md](NATIVE_INSTALL.md).
+Use the latest stable **compiled Release**, Google Gemini API fixed to `gemini-flash-latest`, and the user's own API key. Normal user installation requires Chrome and a key; it does not require cloning source, Git, Node, Python, Codex CLI or Claude CLI. Native Codex/Claude summaries are an optional, separately requested workflow in [NATIVE_INSTALL.md](NATIVE_INSTALL.md).
 
 ## 1. Select the environment and installation folder
 
@@ -91,9 +91,11 @@ If browser controls cannot complete a step, give the user the exact folder and t
 
 Open PaperLens **Settings** or direct the user there. Guide the user to enter their own key through the Settings UI; do not ask them to paste a key into the chat, logs, a file or the repository.
 
-- **Translation Provider**: Google Gemini, user's key, and a model available to their account.
+- **Translation Provider**: Google Gemini and the user's key. The shared Release fixes API translation, API summary and connection tests to `gemini-flash-latest`; do not guide the user to choose a different model or API provider.
 - **Summary Provider**: Google Gemini API. A blank separate summary key reuses the saved translation Gemini key.
 - Choose **Save Settings**, then refresh the article tab.
+
+On update, old API provider and Pro/Lite selections are normalized to Gemini Flash Latest. Existing Gemini keys and optional native summary choices are retained. Other providers' credentials are never copied to Gemini; if no Gemini translation key exists, key entry is still pending. Google may update the version behind the fixed `latest` alias. Source development builds keep their broader provider choices.
 
 See [INSTALL.md](INSTALL.md#api-키-저장하기) for the detailed UI steps and [PRIVACY.md](PRIVACY.md) for provider destinations and local storage. Do not automatically run a paid connection test, translation or summary as part of installing files. Run it when requested by the user and report its actual result; a translation connection test does not verify a separately configured summary provider.
 
