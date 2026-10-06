@@ -245,6 +245,31 @@ function appendValidatedOption(args, flag, value, label) {
   args.push(flag, normalized);
 }
 
+function requireWindowsCodexSandbox(environment) {
+  if (process.platform !== "win32") return;
+  const readEnvironment = (name) => Object.entries(environment).find(
+    ([key, value]) => key.toLowerCase() === name && typeof value === "string" && value.length > 0,
+  )?.[1];
+  // Codex's Windows default uses the OS profile, not HOME/USERPROFILE overrides.
+  const codexHome = readEnvironment("codex_home") ?? path.join(
+    os.userInfo().homedir,
+    ".codex",
+  );
+  let ready = false;
+  try {
+    ready = path.isAbsolute(codexHome) && fs.lstatSync(
+      path.join(codexHome, ".sandbox", "setup_marker.json"),
+    ).isFile();
+  } catch {
+    // Check readiness metadata only. Never provision or read sandbox secrets.
+  }
+  if (!ready) {
+    throw new Error(
+      "Codex's elevated Windows sandbox needs one-time administrator setup. Complete that setup in Codex, then retry Alt+S.",
+    );
+  }
+}
+
 function buildCodexArgs(message, workingDirectory) {
   const args = [
     "exec",
@@ -274,6 +299,9 @@ function buildCodexArgs(message, workingDirectory) {
     "-C",
     workingDirectory,
   ];
+  if (process.platform === "win32") {
+    args.push("-c", 'windows.sandbox="elevated"');
+  }
   appendValidatedOption(args, "-m", message.codexModel, "Codex model");
   // User profiles are intentionally ignored: they can add tools, MCP servers,
   // instructions, or permissions that break the summary isolation boundary.
@@ -315,6 +343,7 @@ async function handleMessage(message, dependencies = {}) {
   }
 
   if (message.provider === "codex") {
+    requireWindowsCodexSandbox(dependencies.environment ?? process.env);
     const summary = await runIsolatedCommand(
       "codex",
       (directory) => buildCodexArgs(message, directory),

@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
+import fs from "node:fs";
 import { createRequire } from "node:module";
+import os from "node:os";
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
-import { closeSync, mkdtempSync, openSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, mkdirSync, mkdtempSync, openSync, rmSync, writeFileSync } from "node:fs";
 import test, { type TestContext } from "node:test";
 import { SUMMARY_SYSTEM_PROMPT as BROWSER_SUMMARY_SYSTEM_PROMPT } from "../src/shared/summary-prompts";
 
@@ -32,7 +34,7 @@ const host = require(
   path.resolve("native-host/paperlens-summary-host.js"),
 ) as NativeHostModule;
 
-function mockCodexEnvironment(context: TestContext): NodeJS.ProcessEnv {
+function mockCodexEnvironment(context: TestContext, ready = true): NodeJS.ProcessEnv {
   // Windows resolves the launcher before the mocked process spawn.
   const directory = mkdtempSync(path.join(tmpdir(), "paperlens-mock-codex-"));
   context.after(() => rmSync(directory, { recursive: true, force: true }));
@@ -41,7 +43,12 @@ function mockCodexEnvironment(context: TestContext): NodeJS.ProcessEnv {
     "throw 'Mock CLI launcher must never execute.'\n",
     "utf8",
   );
-  return { PATH: directory };
+  const codexHome = path.join(directory, ".codex");
+  if (ready) {
+    mkdirSync(path.join(codexHome, ".sandbox"), { recursive: true });
+    writeFileSync(path.join(codexHome, ".sandbox", "setup_marker.json"), "{}", "utf8");
+  }
+  return { PATH: directory, CODEX_HOME: codexHome };
 }
 
 test("browser and native providers share the exact immutable summary system policy", () => {
@@ -88,6 +95,7 @@ test("Codex policy denies root and network, ignores user customization, and uses
     true,
   );
   assert.equal(args.includes('approval_policy="never"'), true);
+  assert.equal(args.includes('windows.sandbox="elevated"'), process.platform === "win32");
   assert.equal(args.includes("agents.enabled=false"), true);
   assert.equal(
     args.includes('shell_environment_policy.inherit="none"'),
@@ -341,4 +349,124 @@ test("native framing transports a complete prompt larger than the old 8 MiB cap 
     closeSync(fd);
     rmSync(directory, { recursive: true, force: true });
   }
+});
+
+test("unprepared Windows Codex sandbox gives an administrator setup action before any CLI spawn", { skip: process.platform !== "win32" }, async (context) => {
+  for (const directoryMarker of [false, true]) {
+    const environment = mockCodexEnvironment(context, false);
+    if (directoryMarker) mkdirSync(path.join(environment.CODEX_HOME!, ".sandbox", "setup_marker.json"), { recursive: true });
+    let spawnCalls = 0;
+    let directoryCalls = 0;
+    let failure: unknown;
+    try {
+      await host.handleMessage({ provider: "codex", prompt: "Read this source only." }, {
+        environment,
+        createTempDirectory: () => { directoryCalls += 1; return path.join(environment.CODEX_HOME!, "isolated"); },
+        removeTempDirectory: () => undefined,
+        spawnImpl: () => { spawnCalls += 1; throw new Error("The CLI must never be started for setup."); },
+      });
+    } catch (error) { failure = error; }
+    assert.equal(spawnCalls, 0, "the browser host must not trigger administrator provisioning");
+    assert.equal(directoryCalls, 0, "readiness must be checked before starting an isolated run");
+    assert.ok(failure instanceof Error);
+    assert.match(failure.message, /elevated Windows sandbox/i);
+    assert.match(failure.message, /one-time.*administrator/i);
+    assert.match(failure.message, /retry Alt\+S/i);
+  }
+});
+
+function successfulChild(): EventEmitter & { stdin: PassThrough; stdout: PassThrough; stderr: PassThrough; kill(): void } {
+  const child = new EventEmitter() as EventEmitter & { stdin: PassThrough; stdout: PassThrough; stderr: PassThrough; kill(): void };
+  child.stdin = new PassThrough();
+  child.stdout = new PassThrough();
+  child.stderr = new PassThrough();
+  child.kill = () => undefined;
+  child.stdin.on("finish", () => {
+    child.stdout.end("controlled summary");
+    child.stderr.end();
+    queueMicrotask(() => child.emit("close", 0));
+  });
+  return child;
+}
+
+test("Windows readiness follows case-insensitive explicit Codex home without global settings", { skip: process.platform !== "win32" }, async (context) => {
+  const ready = mockCodexEnvironment(context);
+  const environments: NodeJS.ProcessEnv[] = [
+    { PATH: ready.PATH, codex_home: ready.CODEX_HOME, USERPROFILE: path.join(ready.CODEX_HOME!, "missing-profile") },
+    { PATH: ready.PATH, CodeX_Home: ready.CODEX_HOME },
+  ];
+  for (const environment of environments) {
+    let spawnCalls = 0;
+    const result = await host.handleMessage({ provider: "codex", prompt: "Controlled source." }, {
+      environment,
+      createTempDirectory: () => path.join(ready.CODEX_HOME!, "isolated"),
+      removeTempDirectory: () => undefined,
+      spawnImpl: (_file: string, args: string[]) => {
+        spawnCalls += 1;
+        assert.equal(args.includes('windows.sandbox="elevated"'), true);
+        assert.equal(args.includes('permissions.paperlens_summary.filesystem={":root"="deny",":workspace_roots"={"."="read"}}'), true);
+        return successfulChild();
+      },
+      timeoutMs: 1_000,
+    });
+    assert.equal(spawnCalls, 1);
+    assert.deepEqual(result, { ok: true, summary: "controlled summary" });
+  }
+});
+
+test("Windows default Codex marker uses the OS profile and ignores HOME or USERPROFILE markers", { skip: process.platform !== "win32" }, async (context) => {
+  const ready = mockCodexEnvironment(context);
+  const alternateProfile = path.dirname(ready.CODEX_HOME!);
+  const osProfile = path.join(alternateProfile, "controlled-os-profile");
+  const osMarker = path.join(osProfile, ".codex", ".sandbox", "setup_marker.json");
+  const alternateMarker = path.join(ready.CODEX_HOME!, ".sandbox", "setup_marker.json");
+  const actualUserInfo = os.userInfo();
+  const actualStat = fs.lstatSync;
+  const inspectedMarkers: string[] = [];
+  context.mock.method(os, "userInfo", () => ({ ...actualUserInfo, homedir: osProfile }));
+  context.mock.method(fs, "lstatSync", (file: string) => {
+    inspectedMarkers.push(file);
+    if (file === alternateMarker) return actualStat(file);
+    throw new Error("Controlled OS sandbox marker is not ready.");
+  });
+  for (const overrides of [
+    { USERPROFILE: alternateProfile, HOME: alternateProfile },
+    { userprofile: alternateProfile },
+    { home: alternateProfile },
+  ]) {
+    let spawnCalls = 0;
+    let failure: unknown;
+    const previousLookups = inspectedMarkers.length;
+    try {
+      await host.handleMessage({ provider: "codex", prompt: "Controlled source." }, {
+        environment: { PATH: ready.PATH, ...overrides },
+        createTempDirectory: () => path.join(alternateProfile, "isolated"),
+        removeTempDirectory: () => undefined,
+        spawnImpl: () => { spawnCalls += 1; return successfulChild(); },
+        timeoutMs: 1_000,
+      });
+    } catch (error) { failure = error; }
+    assert.equal(spawnCalls, 0, "an alternate HOME or USERPROFILE marker must not authorize automatic setup");
+    assert.deepEqual(inspectedMarkers.slice(previousLookups), [osMarker]);
+    assert.ok(failure instanceof Error);
+    assert.match(failure.message, /one-time.*administrator/i);
+  }
+});
+
+test("Claude is unaffected by missing Windows Codex sandbox setup", { skip: process.platform !== "win32" }, async (context) => {
+  const environment = mockCodexEnvironment(context, false);
+  let spawnCalls = 0;
+  const result = await host.handleMessage({ provider: "claude", prompt: "Controlled source." }, {
+    environment,
+    createTempDirectory: () => path.join(environment.CODEX_HOME!, "isolated"),
+    removeTempDirectory: () => undefined,
+    spawnImpl: (_file: string, args: string[]) => {
+      spawnCalls += 1;
+      assert.equal(args.includes('windows.sandbox="elevated"'), false);
+      return successfulChild();
+    },
+    timeoutMs: 1_000,
+  });
+  assert.equal(spawnCalls, 1);
+  assert.deepEqual(result, { ok: true, summary: "controlled summary" });
 });

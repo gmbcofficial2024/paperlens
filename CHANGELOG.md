@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Explicitly select the elevated Windows sandbox for Codex native summaries while preserving the root-deny, temporary-folder-read and network-off permission profile.
+- Check the Codex sandbox setup prerequisite before launching from the browser and show actionable setup guidance when it is missing.
+- Document the one-time administrator-approved Codex setup and source-host update procedure. Native-host source changes do not require reinstalling the browser extension.
+
 ## 1.1.3
 
 - Fix only the Google Gemini API model to `gemini-flash-latest` in shared Releases, preserving translation and summary provider choices.

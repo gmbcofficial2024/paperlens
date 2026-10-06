@@ -84,7 +84,7 @@ npm run package:share
 
 ## 선택 사항: Codex·Claude 요약
 
-Codex CLI 또는 Claude CLI 요약은 전체 소스, Node, 인증된 CLI와 별도의 native host 등록이 필요합니다. 일반 API 키 설치에는 필요하지 않습니다. [Windows native 설치 안내](docs/NATIVE_INSTALL.md)를 참고하세요.
+Codex CLI 또는 Claude CLI 요약은 전체 소스, Node, 인증된 CLI와 별도의 native host 등록이 필요합니다. Windows Codex는 관리자 승인 한 번으로 제한된 Windows 샌드박스를 초기 설정해야 합니다. 일반 API 키 설치에는 필요하지 않습니다. [Windows native 설치 안내](docs/NATIVE_INSTALL.md)를 참고하세요.
 
 ## 라이선스
 
