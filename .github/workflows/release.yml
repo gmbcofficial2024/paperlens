@@ -67,4 +67,5 @@ jobs:
             --repo $env:GITHUB_REPOSITORY `
             --verify-tag `
             --title "PaperLens $version" `
+            --notes-file docs/RELEASE_NOTES.md `
             --generate-notes

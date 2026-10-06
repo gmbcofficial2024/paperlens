@@ -303,11 +303,32 @@ async function flushMicrotasks(rounds = 20): Promise<void> {
 }
 
 async function waitFor(condition: () => boolean, label: string): Promise<void> {
-  for (let attempt = 0; attempt < 200; attempt++) {
+  const deadline = performance.now() + 2_000;
+  while (performance.now() < deadline) {
     if (condition()) return;
-    await new Promise<void>((resolve) => setImmediate(resolve));
+    await new Promise<void>((resolve) => setTimeout(resolve, 5));
   }
+  if (condition()) return;
   assert.fail(`Timed out waiting for ${label}`);
+}
+
+function delayNativeDigest(delayMs: number): () => void {
+  const subtle = crypto.subtle;
+  const previous = Object.getOwnPropertyDescriptor(subtle, "digest");
+  const digest = subtle.digest.bind(subtle);
+  Object.defineProperty(subtle, "digest", {
+    configurable: true,
+    value: async (...args: Parameters<SubtleCrypto["digest"]>) => {
+      // Hashing completes on a native async boundary. CI can take longer than
+      // hundreds of rapid setImmediate turns before that result is ready.
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      return digest(...args);
+    },
+  });
+  return () => {
+    if (previous) Object.defineProperty(subtle, "digest", previous);
+    else Reflect.deleteProperty(subtle, "digest");
+  };
 }
 
 test("Frontiers reading session translates scientific source and summarizes only the available abstract", async () => {
@@ -404,6 +425,7 @@ test("new article content marks a ready summary stale without automatically buyi
 
 test("dynamic article paragraphs are translated once while existing anchors stay intact", async () => {
   const harness = createHarness(settings(false));
+  const restoreDigest = delayNativeDigest(25);
   try {
     const first = harness.session.toggleTranslation();
     await waitFor(() => harness.runtime.ports[0]?.postedMessages.length === 1, "initial translation");
@@ -423,6 +445,7 @@ test("dynamic article paragraphs are translated once while existing anchors stay
     assert.equal(document.querySelectorAll(".paperlens-translation").length, 2);
     assert.ok(document.body.textContent?.includes("Original translation"));
   } finally {
+    restoreDigest();
     harness.restore();
   }
 });

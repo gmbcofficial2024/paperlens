@@ -35,7 +35,7 @@ git tag -a v1.1.1 -m "PaperLens 1.1.1"
 git push origin v1.1.1
 ```
 
-Tagging is the release trigger. The Release workflow checks all four version fields and their agreement with the tag, installs locked dependencies, runs typechecking and all tests, creates the assets, then publishes a GitHub Release containing the ZIP, `SHA256SUMS` and both helpers. It uses the workflow's `GITHUB_TOKEN`; no maintainer token belongs in source or user downloads. The workflow publishes only from `gmbcofficial2024/paperlens`.
+Tagging is the release trigger. The Release workflow checks all four version fields and their agreement with the tag, installs locked dependencies, runs typechecking and all tests, creates the assets, then publishes a GitHub Release containing the ZIP, `SHA256SUMS` and both helpers. The release body includes the user installation guide in `docs/RELEASE_NOTES.md` followed by generated changes. It uses the workflow's `GITHUB_TOKEN`; no maintainer token belongs in source or user downloads. The workflow publishes only from `gmbcofficial2024/paperlens`.
 
 Review the Actions result and uploaded asset list before announcing the version. Actions are pinned to official release commit SHAs; update those pins deliberately when adopting a new Actions version. If a checked build or packaging step fails, no release is created. If a publish attempt partially creates a release, inspect its assets before manually completing or removing that draft/release; blindly rerunning an existing release creation can fail because the tag's release already exists.
 
