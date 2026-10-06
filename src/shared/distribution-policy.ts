@@ -10,16 +10,12 @@ export function applyDistributionPolicy(settings: ExtensionSettings): ExtensionS
   if (!IS_DISTRIBUTION) return settings;
   return {
     ...settings,
-    currentProvider: "gemini",
     providerSettings: {
       ...settings.providerSettings,
       gemini: { ...settings.providerSettings.gemini, model: DISTRIBUTION_API_MODEL },
     },
     summary: {
       ...settings.summary,
-      provider: settings.summary.provider === "codex" || settings.summary.provider === "claude"
-        ? settings.summary.provider
-        : "gemini",
       geminiModel: DISTRIBUTION_API_MODEL,
     },
   };

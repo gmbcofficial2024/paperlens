@@ -190,20 +190,12 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
   }
 
   private configureDistributionControls(): void {
-    for (const option of [...this.summaryProviderSelect.options]) {
-      if (!["gemini", "codex", "claude"].includes(option.value)) option.remove();
-    }
-    for (const id of ["translation-distribution-model-note", "summary-distribution-model-note"]) {
-      this.dependencies.document.getElementById(id)?.classList.remove("hidden");
-    }
+    this.dependencies.document.getElementById("summary-distribution-model-note")?.classList.remove("hidden");
     const summaryHelp = this.dependencies.document.getElementById("summary-provider-help");
-    if (summaryHelp) summaryHelp.textContent = "Google Gemini API uses Gemini Flash Latest. Optional Codex and Claude require a separately installed Native Messaging host and a logged-in CLI.";
+    if (summaryHelp) summaryHelp.textContent = "Gemini and Vertex work directly with your API keys. Only the Gemini model is fixed to Flash Latest in the shared release. Optional Codex and Claude require a separately installed Native Messaging host and a logged-in CLI.";
     const quickStart = this.dependencies.document.getElementById("api-quick-start-help");
-    if (quickStart) quickStart.textContent = "Enter your own Gemini API key, then click Save Settings. A blank Gemini summary key reuses that saved key. No local CLI is needed.";
-    this.populateProviders();
-    this.populateModels("gemini");
-    this.populateSummaryModels();
-    this.setProviderSaveControlsDisabled(false);
+    if (quickStart) quickStart.textContent = "Choose a provider, enter your own API key, then click Save Settings. Only the Gemini model is fixed in the shared release. A blank Gemini summary key reuses the saved Gemini translation key. No local CLI is needed for API providers.";
+    this.summaryGeminiModelSelect.disabled = true;
   }
 
   private bindEvents(): void {
@@ -232,19 +224,16 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
 
   private setProviderSaveControlsDisabled(disabled: boolean): void {
     for (const control of this.providerSaveControls) {
-      const fixedInDistribution = IS_DISTRIBUTION && (
-        control === this.providerSelect || control === this.modelSelect ||
-        control === this.customModelInput || control === this.customUrlInput
-      );
+      const fixedInDistribution = IS_DISTRIBUTION && this.displayedProviderId === "gemini" && control === this.modelSelect;
       control.disabled = disabled || fixedInDistribution;
     }
     this.summaryGeminiModelSelect.disabled = IS_DISTRIBUTION;
-    this.summaryVertexModelSelect.disabled = IS_DISTRIBUTION;
+    this.summaryVertexModelSelect.disabled = false;
   }
 
   private populateProviders(): void {
     this.providerSelect.innerHTML = "";
-    for (const provider of IS_DISTRIBUTION ? [PROVIDERS.gemini] : listProviders()) {
+    for (const provider of listProviders()) {
       const option = this.dependencies.document.createElement("option");
       option.value = provider.id;
       option.textContent = provider.name;
@@ -254,7 +243,10 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
 
   private populateModels(providerId: ProviderId): void {
     this.modelSelect.innerHTML = "";
-    if (IS_DISTRIBUTION) {
+    const fixedGemini = IS_DISTRIBUTION && providerId === "gemini";
+    this.modelSelect.disabled = this.saveInProgress || fixedGemini;
+    this.dependencies.document.getElementById("translation-distribution-model-note")?.classList.toggle("hidden", !fixedGemini);
+    if (fixedGemini) {
       const option = this.dependencies.document.createElement("option");
       option.value = DISTRIBUTION_API_MODEL;
       option.textContent = `Gemini Flash Latest (${DISTRIBUTION_API_MODEL})`;
@@ -293,7 +285,7 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
   private readDisplayedProviderDraft(providerId: ProviderId): ProviderDraft {
     return {
       apiKey: this.apiKeyInput.value,
-      model: IS_DISTRIBUTION ? DISTRIBUTION_API_MODEL : PROVIDERS[providerId].models.length === 0
+      model: IS_DISTRIBUTION && providerId === "gemini" ? DISTRIBUTION_API_MODEL : PROVIDERS[providerId].models.length === 0
         ? this.customModelInput.value
         : this.modelSelect.value,
       customUrl: this.customUrlInput.value,
@@ -302,7 +294,7 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
 
   private renderProviderDraft(providerId: ProviderId, draft: ProviderDraft): void {
     this.apiKeyInput.value = draft.apiKey;
-    if (IS_DISTRIBUTION) {
+    if (IS_DISTRIBUTION && providerId === "gemini") {
       this.modelSelect.value = DISTRIBUTION_API_MODEL;
     } else if (PROVIDERS[providerId].models.length === 0) {
       this.customModelInput.value = draft.model;
@@ -332,7 +324,7 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
       this.summaryVertexModelSelect.appendChild(option);
     }
     this.summaryGeminiModelSelect.disabled = IS_DISTRIBUTION;
-    this.summaryVertexModelSelect.disabled = IS_DISTRIBUTION;
+    this.summaryVertexModelSelect.disabled = false;
   }
 
   private showSummaryProviderFields(providerId: SummaryProviderId): void {
@@ -344,11 +336,6 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
 
   private changeProvider(): void {
     if (!this.providerDrafts || !this.displayedProviderId) return;
-    if (IS_DISTRIBUTION) {
-      this.providerSelect.value = "gemini";
-      return;
-    }
-
     this.providerDrafts = replaceDraft(
       this.providerDrafts,
       this.displayedProviderId,
@@ -475,7 +462,7 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
 
     try {
       const customUrl = providerSettings.custom.customUrl;
-      if (customUrl && !IS_DISTRIBUTION) {
+      if (customUrl) {
         let granted: boolean;
         try {
           granted = await this.ensureCustomUrlPermission(customUrl);

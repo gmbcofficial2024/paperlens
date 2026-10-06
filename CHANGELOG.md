@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.3
+
+- Fix only the Google Gemini API model to `gemini-flash-latest` in shared Releases, preserving translation and summary provider choices.
+- Restore Vertex AI, OpenAI, Anthropic and custom translation model selection, Vertex summaries, and normal custom-server permissions.
+- Keep Gemini model enforcement at the final request boundary without blocking or altering other providers' requests.
+- Correct the installation and agent instructions to describe the Gemini-only model restriction. Users who saved provider changes in 1.1.2 can select their intended provider again.
+
 ## 1.1.2
 
 - Fix the shared Release's API translation, summary and connection tests to Gemini Flash Latest (`gemini-flash-latest`).

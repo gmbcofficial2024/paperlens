@@ -82,14 +82,14 @@ function legacySettings(): ExtensionSettings {
   };
 }
 
-test("distribution normalizes existing API providers and both Gemini models without altering dormant credentials", async () => {
+test("distribution fixes only Gemini models and preserves selected providers and credentials", async () => {
   const core = await edition(true);
   const original = legacySettings();
   const before = structuredClone(original);
   const saved = core.mergeSettings(original);
-  assert.equal(saved.currentProvider, "gemini");
+  assert.equal(saved.currentProvider, "openai");
   assert.equal(saved.providerSettings.gemini.model, "gemini-flash-latest");
-  assert.equal(saved.summary.provider, "gemini");
+  assert.equal(saved.summary.provider, "vertex");
   assert.equal(saved.summary.geminiModel, "gemini-flash-latest");
   assert.equal(saved.providerSettings.gemini.apiKey, "synthetic-gemini-key");
   assert.equal(saved.summary.geminiApiKey, "synthetic-gemini-summary-key");
@@ -102,6 +102,17 @@ test("distribution normalizes existing API providers and both Gemini models with
   assert.equal(saved.maxConcurrency, 4);
   assert.deepEqual(original, before, "normalization must not mutate the caller's settings");
 });
+
+for (const provider of ["vertex", "anthropic", "custom"] as const) {
+  test(`distribution preserves the selected ${provider} translation provider and its settings`, async () => {
+    const raw = legacySettings();
+    raw.currentProvider = provider;
+    const settings = (await edition(true)).mergeSettings(raw);
+    assert.equal(settings.currentProvider, provider);
+    assert.deepEqual(settings.providerSettings[provider], raw.providerSettings[provider]);
+    assert.equal(settings.providerSettings.gemini.model, "gemini-flash-latest");
+  });
+}
 
 test("fresh distribution settings explicitly expose the fixed Gemini API model", async () => {
   const settings = (await edition(true)).defaultSettings();
@@ -136,13 +147,13 @@ test("distribution applies the policy on local settings reads and persisted upda
   });
   try {
     const read = await core.readSettings();
-    assert.equal(read.currentProvider, "gemini");
+    assert.equal(read.currentProvider, "openai");
     assert.equal(read.summary.geminiModel, "gemini-flash-latest");
     const written = await core.writeSettings(legacySettings());
     assert.equal(written.providerSettings.gemini.model, "gemini-flash-latest");
     const persisted = records.paperlens_settings_v1 as ExtensionSettings;
-    assert.equal(persisted.currentProvider, "gemini");
-    assert.equal(persisted.summary.provider, "gemini");
+    assert.equal(persisted.currentProvider, "openai");
+    assert.equal(persisted.summary.provider, "vertex");
     assert.equal(persisted.summary.geminiModel, "gemini-flash-latest");
     assert.equal(persisted.providerSettings.openai.apiKey, "synthetic-openai-key");
   } finally {
@@ -170,17 +181,51 @@ for (const mode of [
   });
 }
 
-for (const provider of ["vertex", "openai", "anthropic", "custom"] as const) {
-  test(`distribution rejects a direct ${provider} API request before constructing a destination`, async () => {
+for (const request of [
+  {
+    provider: "vertex" as const,
+    model: "gemini-3.1-pro-preview",
+    url: "https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-3.1-pro-preview:generateContent?key=synthetic-vertex-key",
+    headers: { "Content-Type": "application/json" },
+  },
+  {
+    provider: "openai" as const,
+    model: "gpt-5.6-terra",
+    url: "https://api.openai.com/v1/chat/completions",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer synthetic-openai-key" },
+  },
+  {
+    provider: "anthropic" as const,
+    model: "claude-sonnet-5",
+    url: "https://api.anthropic.com/v1/messages",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": "synthetic-anthropic-key",
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true",
+    },
+  },
+  {
+    provider: "custom" as const,
+    model: "private-model",
+    url: "https://api.example.test/v1/chat/completions",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer synthetic-custom-key" },
+  },
+]) {
+  test(`distribution preserves a direct ${request.provider} request's endpoint, model and credentials`, async () => {
     const core = await edition(true);
-    assert.throws(() => core.prepareProviderRequest({
-      provider,
-      setting: legacySettings().providerSettings[provider],
+    const prepared = core.prepareProviderRequest({
+      provider: request.provider,
+      setting: { ...legacySettings().providerSettings[request.provider], model: request.model },
       systemPrompt: "Translate faithfully.",
       userPrompt: "Synthetic source text.",
       outputMode: "json",
       stream: false,
-    }), /distributed edition.*Gemini API/i);
+    });
+    assert.equal(prepared.url, request.url);
+    assert.deepEqual(prepared.init.headers, request.headers);
+    const body = JSON.parse(prepared.init.body as string);
+    if (request.provider !== "vertex") assert.equal(body.model, request.model);
   });
 }
 
@@ -222,5 +267,16 @@ test("configuration keys reflect the normalized distribution model and preserve 
   assert.notEqual(
     await development.translationConfigurationKey(development.mergeSettings(rawPro)),
     await development.translationConfigurationKey(development.mergeSettings(rawFlash)),
+  );
+});
+
+test("distribution configuration keys still distinguish non-Gemini models", async () => {
+  const rawTerra = legacySettings();
+  const rawLuna = structuredClone(rawTerra);
+  rawLuna.providerSettings.openai.model = "gpt-5.6-luna";
+  const release = await edition(true);
+  assert.notEqual(
+    await release.translationConfigurationKey(release.mergeSettings(rawTerra)),
+    await release.translationConfigurationKey(release.mergeSettings(rawLuna)),
   );
 });

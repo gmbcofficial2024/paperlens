@@ -32,7 +32,9 @@ after(async () => {
   await rm(outputDir, { recursive: true, force: true });
 });
 
-function legacySettings(provider: "gemini" | "vertex" | "openai", summaryProvider = "gemini") {
+type ApiProvider = "gemini" | "vertex" | "openai" | "anthropic" | "custom";
+
+function legacySettings(provider: ApiProvider, summaryProvider = "gemini") {
   return {
     currentProvider: provider,
     providerSettings: {
@@ -108,14 +110,23 @@ function loadWorker(stored: ReturnType<typeof legacySettings>) {
       const body = JSON.parse(String(init.body));
       requests.push({ url, headers: new Headers(init.headers), body });
       const streamed = url.includes("streamGenerateContent");
+      const google = url.includes("googleapis.com/");
+      const anthropic = url === "https://api.anthropic.com/v1/messages";
       const text = streamed
         ? JSON.stringify({ paragraphs: [translation] })
-        : body.generationConfig?.responseMimeType === "application/json"
+        : body.generationConfig?.responseMimeType === "application/json" || !google
           ? JSON.stringify(translation)
           : "API summary retained.";
-      return streamed
-        ? new Response(`data: ${JSON.stringify(googlePayload(text))}\n\n`, { headers: { "Content-Type": "text/event-stream" } })
-        : Response.json(googlePayload(text));
+      if (streamed) {
+        return new Response(`data: ${JSON.stringify(googlePayload(text))}\n\n`, { headers: { "Content-Type": "text/event-stream" } });
+      }
+      return Response.json(google ? googlePayload(text) : anthropic ? {
+        content: [{ type: "text", text }], stop_reason: "end_turn",
+        usage: { input_tokens: 4, output_tokens: 2 },
+      } : {
+        choices: [{ message: { content: text }, finish_reason: "stop" }],
+        usage: { prompt_tokens: 4, completion_tokens: 2 },
+      });
     },
   }, { filename: "distribution/background.js" });
   return {
@@ -159,27 +170,62 @@ function assertGeminiRequest(request: CapturedRequest, key: string, stream = fal
     /synthetic-(?:vertex|openai|anthropic|custom|summary-vertex)-only-key/);
 }
 
-for (const provider of ["vertex", "openai", "gemini"] as const) {
-  test(`distribution worker routes stored ${provider} and Pro summary settings through fixed Gemini Flash`, async () => {
+function assertOtherProviderRequest(request: CapturedRequest, provider: Exclude<ApiProvider, "gemini">, setting: { apiKey: string; model: string; customUrl?: string }): void {
+  assert.equal(request.headers.get("content-type"), "application/json");
+  assert.equal(request.headers.get("x-goog-api-key"), null);
+  if (provider === "vertex") {
+    assert.equal(request.url, `https://aiplatform.googleapis.com/v1/publishers/google/models/${setting.model}:generateContent?key=${setting.apiKey}`);
+    assert.equal(request.headers.get("authorization"), null);
+    assert.equal(request.body.contents[0].role, "user");
+    assert.equal(request.body.system_instruction, undefined);
+    assert.ok(request.body.systemInstruction.parts[0].text);
+  } else {
+    assert.equal(request.body.model, setting.model);
+    if (provider === "anthropic") {
+      assert.equal(request.url, "https://api.anthropic.com/v1/messages");
+      assert.equal(request.headers.get("x-api-key"), setting.apiKey);
+      assert.equal(request.headers.get("authorization"), null);
+      assert.equal(request.headers.get("anthropic-version"), "2023-06-01");
+      assert.ok(request.body.system);
+    } else {
+      assert.equal(request.url, provider === "openai" ? "https://api.openai.com/v1/chat/completions" : setting.customUrl);
+      assert.equal(request.headers.get("authorization"), `Bearer ${setting.apiKey}`);
+      assert.equal(request.body.messages[0].role, provider === "openai" ? "developer" : "system");
+    }
+  }
+  assert.doesNotMatch(JSON.stringify({ url: request.url, body: request.body, headers: [...request.headers] }),
+    /synthetic-gemini-(?:translation|summary)-key/);
+}
+
+for (const provider of ["vertex", "openai", "anthropic", "custom", "gemini"] as const) {
+  test(`distribution worker preserves stored ${provider} selection and fixes only Gemini models`, async () => {
     const stored = legacySettings(provider, provider === "vertex" ? "vertex" : "gemini");
     const worker = loadWorker(stored);
     try {
       const settings = await worker.message({ type: "settings/get" });
       assert.equal(settings.ok, true);
-      assert.equal(settings.settings.currentProvider, "gemini");
+      assert.equal(settings.settings.currentProvider, provider);
       assert.equal(settings.settings.providerSettings.gemini.model, "gemini-flash-latest");
-      assert.equal(settings.settings.summary.provider, "gemini");
+      assert.equal(settings.settings.summary.provider, stored.summary.provider);
       assert.equal(settings.settings.summary.geminiModel, "gemini-flash-latest");
       assert.equal(settings.settings.providerSettings.gemini.apiKey, TRANSLATION_KEY);
       assert.equal(settings.settings.summary.geminiApiKey, SUMMARY_KEY);
+      for (const preserved of ["vertex", "openai", "anthropic", "custom"] as const) {
+        assert.deepEqual(settings.settings.providerSettings[preserved], stored.providerSettings[preserved]);
+      }
+      assert.equal(settings.settings.summary.vertexModel, stored.summary.vertexModel);
+      assert.equal(settings.settings.summary.vertexApiKey, stored.summary.vertexApiKey);
       const visible = await worker.message({ type: "settings/get" }, true);
       assert.doesNotMatch(JSON.stringify(visible.settings), /synthetic-.*-key/);
       const translated = await worker.message({ type: "translate/paragraph", text: "Independent evidence.", paragraphId: "p1" });
-      assertGeminiRequest(worker.requests[0], TRANSLATION_KEY);
+      if (provider === "gemini") assertGeminiRequest(worker.requests[0], TRANSLATION_KEY);
+      else assertOtherProviderRequest(worker.requests[0], provider, stored.providerSettings[provider]);
       assert.equal(translated.ok, true);
       assert.deepEqual(translated.result, { ...translation, usage: { inputTokens: 4, outputTokens: 2 } });
       const summarized = await worker.message({ type: "summary/generate", title: "Study", articleText: "Independent evidence.", kind: "paper" });
-      assertGeminiRequest(worker.requests[1], SUMMARY_KEY);
+      if (stored.summary.provider === "vertex") {
+        assertOtherProviderRequest(worker.requests[1], "vertex", { apiKey: stored.summary.vertexApiKey, model: stored.summary.vertexModel });
+      } else assertGeminiRequest(worker.requests[1], SUMMARY_KEY);
       assert.equal(summarized.ok, true);
       assert.equal(summarized.result.summary, "API summary retained.");
       assert.equal(worker.requests.length, 2);
@@ -190,7 +236,7 @@ for (const provider of ["vertex", "openai", "gemini"] as const) {
 
 for (const type of ["stream/translate", "stream/translate-section"] as const) {
   test(`distribution worker ${type} uses Gemini Flash and the Gemini translation credential`, async () => {
-    const worker = loadWorker(legacySettings("openai"));
+    const worker = loadWorker(legacySettings("gemini"));
     try {
       const messages = await worker.stream(type === "stream/translate"
         ? { type, text: "Independent evidence.", paragraphId: "p1" }
@@ -205,7 +251,7 @@ for (const type of ["stream/translate", "stream/translate-section"] as const) {
 }
 
 test("distribution worker cannot substitute foreign credentials when Gemini credentials are absent", async () => {
-  const stored = legacySettings("vertex", "vertex");
+  const stored = legacySettings("gemini", "gemini");
   stored.providerSettings.gemini.apiKey = "";
   stored.summary.geminiApiKey = "";
   const worker = loadWorker(stored);

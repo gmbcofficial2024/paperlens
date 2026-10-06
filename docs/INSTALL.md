@@ -26,16 +26,18 @@ Chrome은 이 폴더의 파일을 계속 읽습니다. 설치 후 폴더를 삭�
 ## API 키 저장하기
 
 1. [Google AI Studio](https://aistudio.google.com/apikey)에서 Gemini API 키를 발급합니다.
-2. **Translation Provider**의 **Google Gemini**에서 **API Key**를 입력합니다. 배포판 API 모델은 **Gemini Flash Latest (`gemini-flash-latest`)**로 고정됩니다.
+2. **Translation Provider**의 **Google Gemini**에서 **API Key**를 입력합니다. 배포판에서 Gemini 모델은 **Gemini Flash Latest (`gemini-flash-latest`)**로 고정됩니다.
 3. **Summary Provider**를 **Google Gemini API**로 설정합니다. **Gemini Summary API Key**를 비워 두면 저장된 번역용 키를 재사용합니다. 다른 키를 원하면 별도로 입력합니다.
 4. **Save Settings**를 누릅니다. 저장되지 않은 편집 내용은 페이지에서 사용하지 않습니다.
 5. 필요하면 **Test saved API connection**을 누릅니다. 저장된 번역 설정으로 짧은 유료 API 요청을 보냅니다. 별도 요약 제공자의 연결까지 검사하는 버튼은 아닙니다.
 
 각 사용자는 자신의 키를 사용합니다. 키와 설정은 해당 Chrome 프로필과 확장 설치에 저장되며 PaperLens가 프로필 간 동기화하지 않습니다. 모델 사용 가능 여부, 요금, 할당량과 제공자의 보관 정책을 확인하세요. [개인정보 안내](PRIVACY.md)
 
-배포판의 번역·API 요약·연결 테스트는 모두 `gemini-flash-latest`를 사용합니다. 모델 선택은 제공하지 않으며, Google은 이 `latest` 별칭이 가리키는 실제 버전을 갱신할 수 있습니다. [Google 모델 별칭 안내](https://ai.google.dev/gemini-api/docs/models#latest)
+Gemini를 선택한 번역·API 요약·연결 테스트는 `gemini-flash-latest`를 사용합니다. Gemini 모델 선택만 고정되며, Google은 이 `latest` 별칭이 가리키는 실제 버전을 갱신할 수 있습니다. [Google 모델 별칭 안내](https://ai.google.dev/gemini-api/docs/models#latest)
 
-업데이트 후 이전 다른 API 제공자·Pro·Lite 설정은 Gemini Flash Latest 사용으로 전환됩니다. 기존 Gemini 키는 유지하며, 다른 제공자의 키를 대신 사용하지 않습니다. Gemini 키가 없으면 입력하세요. Codex/Claude 요약 선택은 유지되며 [별도 native host 설치](https://github.com/gmbcofficial2024/paperlens/blob/main/docs/NATIVE_INSTALL.md)가 필요합니다. 다른 API 제공자와 사용자 지정 서버는 소스 개발 빌드에서 사용할 수 있습니다.
+업데이트 후 기존 Gemini Pro·Lite 선택만 Flash Latest로 전환되며, 다른 제공자의 선택·모델·키는 유지됩니다. `1.1.2`에서 설정을 저장하여 Gemini로 전환되었다면 사용할 제공자를 다시 선택하세요.
+
+다른 번역 제공자, Vertex 요약과 사용자 지정 번역 서버도 배포판에서 설정할 수 있습니다. 사용자 지정 HTTPS 서버는 저장 시 해당 서버의 권한을 요청합니다. Codex/Claude 요약에는 [별도 native host 설치](https://github.com/gmbcofficial2024/paperlens/blob/main/docs/NATIVE_INSTALL.md)가 필요합니다.
 
 ## 사용하기
 
@@ -63,4 +65,4 @@ Windows 도우미에서는 `U`를 선택하고 **현재 Chrome에 등록된 기�
 
 ## 삭제와 데이터 정리
 
-**Clear Cache**는 로컬 번역 캐시를 지웁니다. 배포판에서 사용하는 키를 지우려면 Gemini API 키와 별도 요약 키를 비우고 **Save Settings**를 누릅니다. 과거에 저장한 다른 제공자의 키까지 포함하여 전체 로컬 설정을 지우려면 확장을 제거하세요. 설치·백업 파일은 별도로 삭제할 수 있습니다. 외부 제공자가 이미 받은 요청이나 로그는 로컬 삭제로 지워지지 않습니다.
+**Clear Cache**는 로컬 번역 캐시를 지웁니다. 키를 지우려면 각 제공자의 API 키와 별도 요약 키를 비우고 **Save Settings**를 누릅니다. 확장을 제거하면 전체 브라우저 로컬 설정이 제거됩니다. 설치·백업 파일은 별도로 삭제할 수 있습니다. 외부 제공자가 이미 받은 요청이나 로그는 로컬 삭제로 지워지지 않습니다.

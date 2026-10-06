@@ -66,10 +66,7 @@ function jsonRequest(
 
 export function prepareProviderRequest(options: ProviderCallOptions): PreparedProviderRequest {
   const { provider, setting, systemPrompt, userPrompt, outputMode, stream } = options;
-  if (IS_DISTRIBUTION && provider !== "gemini") {
-    throw new Error("The distributed edition only supports Gemini API requests.");
-  }
-  const model = IS_DISTRIBUTION
+  const model = IS_DISTRIBUTION && provider === "gemini"
     ? DISTRIBUTION_API_MODEL
     : setting.model?.trim() || PROVIDERS[provider].defaultModel;
 
