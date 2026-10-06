@@ -2,7 +2,7 @@
 
 ## Route the task before running commands
 
-- **Install or update PaperLens for a user:** read [docs/AI_INSTALL.md](docs/AI_INSTALL.md) and execute that runbook's supported steps. Use the compiled stable Release and the existing loaded extension folder when updating. Normal installation does not need Git, Node, Python or a native CLI. Browser registration and the user's own API key are separate completion stages.
+- **Install or update PaperLens for a user:** read [docs/AI_INSTALL.md](docs/AI_INSTALL.md) and execute that runbook's supported steps. Use the compiled stable Release and the existing loaded extension folder when updating. For a new Windows installation without a user-specified target, resolve the Windows Documents Known Folder and use its `PaperLens\extension` subfolder, independent of cwd; do not ask for a folder just to replace this default. An explicit target and an existing update folder take precedence. Normal installation does not need Git, Node, Python or a native CLI. Browser registration and the user's own API key are separate completion stages.
 - **Edit, debug, review or release source:** use the development rules below, [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/RELEASING.md](docs/RELEASING.md). Development commands are not prerequisites for installing the browser Release.
 - **Reading this repository through a GitHub URL:** README links the installation runbook explicitly. Fetch https://raw.githubusercontent.com/gmbcofficial2024/paperlens/main/docs/AI_INSTALL.md if the rendered page is incomplete. Do not assume a remote AGENTS.md is automatically loaded by every agent.
 

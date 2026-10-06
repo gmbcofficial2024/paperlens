@@ -36,3 +36,29 @@ test("runtime boundary rejects malformed or unauthorized input before any provid
   assert.ok(runtimeRequestError({type: "unknown"}, {}, "paperlens"));
   assert.equal(runtimeRequestError({type: "summary/generate", articleText: "source", kind: "article"}, {id: "paperlens", tab: {id: 1}}, "paperlens"), null);
 });
+
+test("tab-hosted options and popup pages retain extension-only actions", () => {
+  for (const path of ["options.html", "popup.html?view=settings#keys"]) {
+    const sender = { id: "paperlens", url: `chrome-extension://paperlens/${path}`, tab: { id: 7 } };
+    for (const message of [
+      { type: "settings/update", settings: defaultSettings() },
+      { type: "cache/clear" },
+      { type: "tabs/toggle-translate" },
+      { type: "tabs/summarize-paper" },
+    ]) assert.equal(runtimeRequestError(message, sender, "paperlens"), null);
+  }
+});
+
+test("an absent tab is not evidence of an authorized extension page", () => {
+  for (const sender of [
+    { id: "paperlens" },
+    { id: "paperlens", url: "https://example.test/options.html" },
+    { id: "paperlens", url: "chrome-extension://paperlens.evil/options.html" },
+    { id: "paperlens", url: "chrome-extension://paperlens/options.html.evil" },
+    { id: "paperlens", url: "chrome-extension://paperlens@evil/options.html" },
+    { id: "paperlens", url: "not a URL" },
+    { url: "chrome-extension://paperlens/options.html" },
+  ]) {
+    assert.ok(runtimeRequestError({ type: "settings/update", settings: defaultSettings() }, sender, "paperlens"));
+  }
+});

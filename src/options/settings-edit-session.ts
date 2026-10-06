@@ -2,6 +2,7 @@ import { sendRuntimeMessage } from "../shared/messages";
 import { PROVIDERS, listProviders } from "../shared/providers";
 import { DISTRIBUTION_API_MODEL, IS_DISTRIBUTION } from "../shared/distribution-policy";
 import { mergeSettings } from "../shared/schema";
+import { redactSecrets } from "../shared/secrets";
 import type {
   ExtensionSettings,
   ProviderId,
@@ -481,7 +482,7 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
         settings: snapshot,
       });
       if (!response.ok || !("settings" in response)) {
-        this.showToast("Failed to save settings");
+        this.showSaveFailure(response.ok ? undefined : response.error, snapshot);
         return;
       }
 
@@ -496,12 +497,40 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
         this.providerDrafts[this.displayedProviderId],
       );
       this.showToast("Settings saved");
-    } catch {
-      this.showToast("Failed to save settings");
+    } catch (error) {
+      this.showSaveFailure(error, snapshot);
     } finally {
       this.saveInProgress = false;
       this.setProviderSaveControlsDisabled(false);
     }
+  }
+
+  private showSaveFailure(error: unknown, snapshot: ExtensionSettings): void {
+    const detail = (typeof error === "string"
+      ? error
+      : error instanceof Error ? error.message : "").trim();
+    const secrets = [
+      ...Object.values(this.savedSettingsBaseline?.providerSettings ?? {})
+        .map((provider) => provider.apiKey),
+      ...Object.values(this.providerDrafts ?? {}).map((draft) => draft.apiKey),
+      ...Object.values(snapshot.providerSettings).map((provider) => provider.apiKey),
+      this.savedSettingsBaseline?.summary.geminiApiKey,
+      this.savedSettingsBaseline?.summary.vertexApiKey,
+      snapshot.summary.geminiApiKey,
+      snapshot.summary.vertexApiKey,
+      this.apiKeyInput.value,
+      this.summaryGeminiApiKeyInput.value,
+      this.summaryVertexApiKeyInput.value,
+    ].flatMap((secret) => secret ? [secret, secret.trim()] : [])
+      .filter(Boolean)
+      .sort((left, right) => right.length - left.length);
+    // The shared redactor skips short strings; suppress details in that case.
+    const safeDetail = secrets.some((secret) => secret.length <= 4)
+      ? ""
+      : redactSecrets(detail, secrets);
+    this.showToast(safeDetail
+      ? `Failed to save settings: ${safeDetail}`
+      : "Failed to save settings");
   }
 
   private async clearCache(): Promise<void> {

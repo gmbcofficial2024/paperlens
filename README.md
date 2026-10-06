@@ -27,7 +27,7 @@ Chrome Web Store 등록 없이 사용할 수 있는 공개 배포입니다. GitH
 ### Windows 설치·업데이트 도우미
 
 1. 같은 Release에서 `Install-Update-PaperLens.cmd`와 `install-update-paperlens.ps1`을 한 폴더에 다운로드합니다.
-2. `.cmd` 파일을 실행합니다. 처음 설치하면 `N`, 기존 배포 폴더를 업데이트하면 `U`를 선택합니다.
+2. `.cmd` 파일을 실행합니다. 처음 설치하면 `N`으로 Windows의 실제 문서 폴더 아래 `PaperLens\extension`에 설치합니다. 기존 배포 폴더를 업데이트하면 `U`로 현재 등록된 폴더를 선택합니다.
 3. 처음 설치 시 안내된 폴더를 `chrome://extensions`의 **개발자 모드 → 압축해제된 확장 프로그램을 로드합니다**에서 선택합니다.
 4. 업데이트 후에는 같은 페이지에서 PaperLens의 **다시 로드**를 누르고, 열려 있는 기사 탭을 새로고침합니다.
 

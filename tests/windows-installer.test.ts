@@ -114,10 +114,41 @@ async function oldInstallation(target: string) {
   }
 }
 
+test("new-install default uses Windows Documents independently of cwd and profile environment paths", { skip: !windows }, async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "paperlens default path "));
+  try {
+    const wrapper = path.join(root, "resolve default fixture.ps1");
+    const quote = (value: string) => `'${value.replaceAll("'", "''")}'`;
+    await writeFile(wrapper, [
+      "$ErrorActionPreference = 'Stop'",
+      "$tokens = $null; $errors = $null",
+      `$ast = [Management.Automation.Language.Parser]::ParseFile(${quote(script)}, [ref]$tokens, [ref]$errors)`,
+      "if ($errors.Count) { throw 'Installer did not parse.' }",
+      "$ast.FindAll({ param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] }, $true) | ForEach-Object { Invoke-Expression $_.Extent.Text }",
+      "$LocalReleaseDirectory = $null",
+      `$env:LOCALAPPDATA = ${quote(path.join(root, "unrelated app data"))}`,
+      `$env:USERPROFILE = ${quote(path.join(root, "unrelated profile"))}`,
+      `$env:HOME = ${quote(path.join(root, "unrelated home"))}`,
+      "function Read-Host { 'N' }",
+      "$actual = Resolve-InstallDirectory ''",
+      "$documents = [Environment]::GetFolderPath([Environment+SpecialFolder]::MyDocuments, [Environment+SpecialFolderOption]::DoNotVerify)",
+      "if (-not $documents) { throw 'Test environment has no Windows Documents folder.' }",
+      "@{ actual = $actual; expected = [IO.Path]::Combine($documents, 'PaperLens', 'extension'); cwd = (Get-Location).Path } | ConvertTo-Json -Compress",
+    ].join("\r\n"), "ascii");
+    const result = run("", "", wrapper, root);
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    const resolved = JSON.parse(result.stdout.trim().split(/\r?\n/).at(-1) ?? "");
+    assert.equal(resolved.actual, resolved.expected);
+    assert.equal(resolved.cwd, root);
+    assert.notEqual(path.dirname(resolved.actual), root);
+    assert.deepEqual(await readdir(root), ["resolve default fixture.ps1"], "resolving the default must not install or move files");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test("Windows PowerShell 5.1 installs a verified local release in a stable explicit folder", { skip: !windows }, async () => {
   const data = await fixture();
   try {
-    const result = run(data.release, data.target);
+    const result = run(data.release, data.target, undefined, data.root);
     assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
     assert.equal(JSON.parse(await readFile(path.join(data.target, "manifest.json"), "utf8")).version, "1.2.3");
     assert.equal(await readFile(path.join(data.target, "content.js"), "utf8"), "fixture:content.js");

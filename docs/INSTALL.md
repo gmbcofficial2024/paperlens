@@ -6,11 +6,13 @@
 
 1. [최신 Release](https://github.com/gmbcofficial2024/paperlens/releases/latest)에서 `Install-Update-PaperLens.cmd`와 `install-update-paperlens.ps1`을 **같은 폴더**에 다운로드합니다.
 2. `.cmd`를 실행하고 `N`을 선택합니다. Windows에 포함된 PowerShell로 최신 공개 Release를 다운로드하며 GitHub 로그인이 필요하지 않습니다.
-3. 설치 경로는 `%LOCALAPPDATA%\PaperLens\extension`입니다. 완료 안내에서 실제 경로를 확인합니다.
+3. 새 설치의 기본 경로는 Windows의 실제 **문서 폴더 아래 `PaperLens\extension`**입니다. 보통 `%USERPROFILE%\Documents\PaperLens\extension`이며, 문서 폴더가 OneDrive 등 다른 로컬 위치에 있으면 그 위치를 사용합니다. 완료 안내에서 실제 경로를 확인합니다.
 4. `chrome://extensions`를 열고 **개발자 모드**를 켭니다. **압축해제된 확장 프로그램을 로드합니다**에서 안내된 `extension` 폴더를 선택합니다.
 5. Chrome의 확장 프로그램 메뉴에서 PaperLens를 고정하고 팝업의 **Settings**를 엽니다.
 
 Chrome의 로컬 등록은 처음 한 번 직접 해야 합니다. 도우미는 Chrome 설정이나 브라우저 프로필을 수정하지 않습니다. Windows에서 다운로드한 파일의 보안 경고가 표시되면 출처가 이 공개 저장소의 Release인지 확인하세요. 기관 정책이 스크립트 실행이나 개발자 모드를 막는 경우에는 해당 관리자에게 문의하세요.
+
+직접 지정한 `-InstallDirectory` 경로가 있으면 그 경로를 사용합니다. 기존 설치는 문서 폴더로 이동하지 않고 Chrome에 등록된 기존 폴더를 업데이트합니다. 네트워크 공유나 링크로 연결된 문서 폴더는 도우미가 지원하지 않으므로 별도의 로컬 전용 폴더를 지정하세요.
 
 ## ZIP으로 직접 설치하기
 

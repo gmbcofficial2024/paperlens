@@ -135,6 +135,7 @@ function normalizedSettings(): ExtensionSettings {
 
 async function createHarness(
   permissionResults: { contains?: boolean; request?: boolean } = {},
+  settings = initialSettings(),
 ): Promise<OptionsHarness> {
   const html = await readFile("options.html", "utf8");
   const parsed = parseHTML(html);
@@ -160,7 +161,7 @@ async function createHarness(
 
   const document = parsed.document as unknown as Document;
   const window = parsed.window as unknown as Window;
-  const runtime = new FakeOptionsRuntime(initialSettings());
+  const runtime = new FakeOptionsRuntime(settings);
   const permissions = new FakePermissions(
     permissionResults.contains ?? true,
     permissionResults.request ?? true,
@@ -332,7 +333,7 @@ test("pending Save locks provider edits, ignores overlap, and preserves drafts a
 
   harness.runtime.updateCalls[0].respond({ ok: false, error: "storage failed" });
   await waitFor(() => !save.disabled, "controls after unsuccessful save");
-  assert.equal(toastText(harness), "Failed to save settings");
+  assert.equal(toastText(harness), "Failed to save settings: storage failed");
   selectProvider(harness, "custom");
   assert.equal(apiKey.value, "  pending-custom  ");
   assert.equal(customModel.value, "  pending-model  ");
@@ -352,9 +353,103 @@ test("runtime rejection preserves raw drafts and re-enables provider controls", 
   harness.runtime.updateCalls[0].reject(new Error("runtime unavailable"));
   await waitFor(() => !save.disabled, "controls after runtime rejection");
 
-  assert.equal(toastText(harness), "Failed to save settings");
+  assert.equal(toastText(harness), "Failed to save settings: runtime unavailable");
   assert.equal(apiKey.value, "  retry-gemini  ");
   assert.equal(element<HTMLSelectElement>(harness, "#provider").disabled, false);
+});
+
+for (const failureKind of ["response", "exception"] as const) {
+  test(`${failureKind} save errors show inert detail and redact baseline, draft, and pending summary credentials`, async () => {
+    const settings = initialSettings();
+    settings.providerSettings.custom.apiKey = "saved-custom";
+    settings.summary.geminiApiKey = "saved-summary-gemini";
+    settings.summary.vertexApiKey = "saved-summary-vertex";
+    settings.summary.codexModel = "preserved-native-model";
+    const harness = await createHarness({}, settings);
+    const drafts: Record<ProviderId, string> = {
+      gemini: "  draft-gemini  ",
+      vertex: "  draft-vertex  ",
+      openai: "  draft-openai  ",
+      anthropic: "  draft-anthropic  ",
+      custom: "  draft+custom/key=  ",
+    };
+    for (const providerId of Object.keys(drafts) as ProviderId[]) {
+      selectProvider(harness, providerId);
+      element<HTMLInputElement>(harness, "#api-key").value = drafts[providerId];
+    }
+    const summaryGemini = element<HTMLInputElement>(harness, "#summary-gemini-api-key");
+    const summaryVertex = element<HTMLInputElement>(harness, "#summary-vertex-api-key");
+    summaryGemini.value = "  submitted-summary-gemini  ";
+    summaryVertex.value = "  submitted-summary-vertex  ";
+    click(harness, "#save-btn");
+    await waitFor(() => harness.runtime.updateCalls.length === 1, "pending private settings update");
+    summaryGemini.value = "pending-summary-gemini";
+    summaryVertex.value = "pending-summary-vertex";
+
+    const secrets = [
+      ...Object.values(settings.providerSettings).map((provider) => provider.apiKey!),
+      settings.summary.geminiApiKey,
+      settings.summary.vertexApiKey,
+      ...Object.values(drafts).flatMap((draft) => [draft, draft.trim()]),
+      "submitted-summary-gemini",
+      "submitted-summary-vertex",
+      summaryGemini.value,
+      summaryVertex.value,
+    ];
+    const encodedCustom = encodeURIComponent(drafts.custom.trim());
+    const formEncodedCustom = new URLSearchParams({ key: drafts.custom }).toString().slice(4);
+    const detail = `storage unavailable <img src=x onerror=alert(1)> ${secrets.join(" | ")} | ${encodedCustom} | ${formEncodedCustom}`;
+    if (failureKind === "response") {
+      harness.runtime.updateCalls[0].respond({ ok: false, error: detail });
+    } else {
+      harness.runtime.updateCalls[0].reject(new Error(detail));
+    }
+    const save = element<HTMLButtonElement>(harness, "#save-btn");
+    await waitFor(() => !save.disabled, "controls after detailed failure");
+
+    const toast = element<HTMLElement>(harness, "#toast");
+    assert.ok(toastText(harness).startsWith("Failed to save settings: storage unavailable"));
+    assert.ok(toastText(harness).includes("<img src=x onerror=alert(1)>"));
+    assert.ok(toastText(harness).includes("[REDACTED]"));
+    assert.equal(toast.children.length, 0);
+    for (const secret of [...secrets, encodedCustom, formEncodedCustom]) {
+      assert.equal(toastText(harness).includes(secret), false, `Leaked credential ${secret}`);
+    }
+    for (const providerId of Object.keys(drafts) as ProviderId[]) {
+      selectProvider(harness, providerId);
+      assert.equal(element<HTMLInputElement>(harness, "#api-key").value, drafts[providerId]);
+    }
+    assert.equal(summaryGemini.value, "pending-summary-gemini");
+    assert.equal(summaryVertex.value, "pending-summary-vertex");
+    click(harness, "#save-btn");
+    await waitFor(() => harness.runtime.updateCalls.length === 2, "retry after detailed failure");
+    assert.equal(harness.runtime.updateCalls[1].settings.summary.codexModel, "preserved-native-model");
+    harness.runtime.updateCalls[1].respond({ ok: false, error: "" });
+    await waitFor(() => !save.disabled, "controls after retry failure");
+  });
+}
+
+test("save failures without meaningful or safely redacted detail keep the generic feedback", async () => {
+  const harness = await createHarness();
+  const save = element<HTMLButtonElement>(harness, "#save-btn");
+  click(harness, "#save-btn");
+  await waitFor(() => harness.runtime.updateCalls.length === 1, "empty response error");
+  harness.runtime.updateCalls[0].respond({ ok: false, error: "   " });
+  await waitFor(() => !save.disabled, "controls after empty response error");
+  assert.equal(toastText(harness), "Failed to save settings");
+
+  click(harness, "#save-btn");
+  await waitFor(() => harness.runtime.updateCalls.length === 2, "empty exception");
+  harness.runtime.updateCalls[1].reject(new Error(""));
+  await waitFor(() => !save.disabled, "controls after empty exception");
+  assert.equal(toastText(harness), "Failed to save settings");
+
+  element<HTMLInputElement>(harness, "#api-key").value = "a+b";
+  click(harness, "#save-btn");
+  await waitFor(() => harness.runtime.updateCalls.length === 3, "short credential failure");
+  harness.runtime.updateCalls[2].respond({ ok: false, error: "Rejected key a%2Bb" });
+  await waitFor(() => !save.disabled, "controls after short credential failure");
+  assert.equal(toastText(harness), "Failed to save settings");
 });
 
 test("successful Save normalizes every provider draft without overwriting pending summary edits", async () => {

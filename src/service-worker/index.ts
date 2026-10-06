@@ -5,7 +5,7 @@ import {
   buildSummaryPrompt,
   SUMMARY_SYSTEM_PROMPT,
 } from "../shared/summary-prompts";
-import {readingSettings, runtimeRequestError, translationConfigurationKey, assertTranslationConfiguration} from "../shared/runtime-policy";
+import {readingSettings, runtimeRequestError, isExtensionPageSender, translationConfigurationKey, assertTranslationConfiguration} from "../shared/runtime-policy";
 import { dispatchSummaryProviderOnce } from "../summary/flow";
 import { PROVIDERS } from "../shared/providers";
 import {
@@ -373,7 +373,7 @@ chrome.runtime.onMessage.addListener((message: RuntimeRequest, sender, sendRespo
           const settings = await readSettings();
           const publicSettings = readingSettings(settings);
           publicSettings.translationConfigKey = await translationConfigurationKey(settings);
-          sendResponse({ ok: true, settings: sender.tab ? publicSettings : settings } as RuntimeResponse);
+          sendResponse({ ok: true, settings: isExtensionPageSender(sender, chrome.runtime.id) ? settings : publicSettings } as RuntimeResponse);
           return;
         }
         case "settings/update": {

@@ -14,17 +14,21 @@ Use the latest stable **compiled Release**, Google Gemini API as the default pro
 
 For an existing installation, determine the exact unpacked folder already registered in the intended Chrome profile. Use browser controls if available, or the path supplied by the user. If an existing installation is known but its path is unknown, resolve that missing path before updating; downloading and verifying the release can continue meanwhile. Keep the same folder and profile so Chrome preserves the extension identity and local settings.
 
-For a new Windows installation, use `%LOCALAPPDATA%\PaperLens\extension`. Use an absolute dedicated extension folder. The helper rejects source checkouts, unrelated personal files, drive roots, network shares and linked paths. If the user has a development installation, follow [the existing-installation instructions](INSTALL.md#기존-설치-업데이트하기) instead of bypassing those checks.
+For a new Windows installation with no target supplied, use the user's actual Windows **Documents Known Folder (MyDocuments)** plus `PaperLens\extension`. Resolve it through Windows as shown below; do not derive it from the current directory, `$env:USERPROFILE` or `$env:LOCALAPPDATA`. This follows a normal local OneDrive or redirected Documents location. Use this default without asking the user to choose a folder. A user-specified absolute installation folder takes precedence, and an update must keep the existing registered folder, including older installations in LocalAppData.
+
+Use an absolute dedicated extension folder. The helper rejects source checkouts, unrelated personal files, drive roots, network shares and linked paths. If Windows Documents resolves to a network share or linked path, report that unsupported path and obtain a dedicated local target rather than falling back silently. If the user has a development installation, follow [the existing-installation instructions](INSTALL.md#기존-설치-업데이트하기) instead of bypassing those checks.
 
 ## 2. Install or update the files on Windows
 
 Run the following block from a PowerShell terminal. It obtains one stable Release's helper files and SHA256SUMS, validates both helpers, then runs the PS1 directly with an explicit installation path. Do not use the CMD launcher for an agent run: its user menu and `pause` are interactive.
 
-The first path assignment is for a new installation. **For an update, replace that assignment with the exact existing absolute folder before running.** The helper validates the downloaded ZIP, stages all browser files, retains the previous folder as a sibling backup, and restores it if replacement fails.
+The first three Documents/path lines are for a new installation. **For an update or a user-specified target, replace all three lines with `$paperlensInstallDirectory = 'the exact absolute folder'` before running.** An update uses the existing registered folder. The helper validates the downloaded ZIP, stages all browser files, retains the previous folder as a sibling backup, and restores it if replacement fails.
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$paperlensInstallDirectory = Join-Path $env:LOCALAPPDATA 'PaperLens\extension'
+$paperlensDocumentsDirectory = [Environment]::GetFolderPath([Environment+SpecialFolder]::MyDocuments, [Environment+SpecialFolderOption]::DoNotVerify)
+if (-not $paperlensDocumentsDirectory) { throw 'Windows Documents folder is unavailable. Specify an absolute installation folder.' }
+$paperlensInstallDirectory = Join-Path $paperlensDocumentsDirectory 'PaperLens\extension'
 $paperlensDownloadDirectory = Join-Path ([IO.Path]::GetTempPath()) ('PaperLens-agent-' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $paperlensDownloadDirectory | Out-Null
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
@@ -74,7 +78,7 @@ Before continuing, verify exit code `0`, `manifest.json` version, and the manife
 
 Read `https://api.github.com/repos/gmbcofficial2024/paperlens/releases/latest` and use that response's assets to download `paperlens-<version>.zip` and `SHA256SUMS`. Select the tag-matching ZIP, verify its SHA-256, and extract with the available archive tools into a staging directory. GitHub's automatically generated Source code ZIP is not a loadable browser release.
 
-Choose one permanent, dedicated folder for a first install, such as `~/Library/Application Support/PaperLens/extension` on macOS or `~/.local/share/paperlens/extension` on Linux. Use the currently registered folder for an update. Validate the extracted manifest/runtime assets, preserve a backup of an existing dedicated extension directory, and place the ZIP's inner `paperlens-<version>` contents in that permanent folder. Do not load a new versioned folder as a separate extension. Follow [INSTALL.md](INSTALL.md#zip으로-직접-설치하기) if manual archive handling is needed.
+For a first install without an explicit target, use the user's Documents folder plus `PaperLens/extension`, independently of the agent's current directory. On macOS this is normally `~/Documents/PaperLens/extension`; on Linux use the configured Documents directory (`xdg-user-dir DOCUMENTS` when available), or `~/Documents` if none is configured. Resolve it to an absolute dedicated folder. A user-specified target takes precedence; updates use the currently registered folder. Validate the extracted manifest/runtime assets, preserve a backup of an existing dedicated extension directory, and place the ZIP's inner `paperlens-<version>` contents in that permanent folder. Do not load a new versioned folder as a separate extension. Follow [INSTALL.md](INSTALL.md#zip으로-직접-설치하기) if manual archive handling is needed.
 
 ## 3. Apply the installation in Chrome
 

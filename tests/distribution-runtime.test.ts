@@ -131,10 +131,13 @@ function loadWorker(stored: ReturnType<typeof legacySettings>) {
   }, { filename: "distribution/background.js" });
   return {
     requests, nativeRequests,
-    message(message: unknown, content = false): Promise<any> {
+    message(message: unknown, sender: boolean | { id?: string; url?: string; tab?: unknown } = false): Promise<any> {
       return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => reject(new Error("Worker did not respond.")), 2_000);
-        onMessage.emit(message, { id: chrome.runtime.id, ...(content ? { tab: { id: 1 } } : {}) }, (response: unknown) => {
+        const messageSender = typeof sender === "boolean"
+          ? { id: chrome.runtime.id, url: sender ? "https://article.example.test/reading" : `chrome-extension://${chrome.runtime.id}/popup.html`, ...(sender ? { tab: { id: 1 } } : {}) }
+          : { id: chrome.runtime.id, ...sender };
+        onMessage.emit(message, messageSender, (response: unknown) => {
           clearTimeout(timeout);
           resolve(clone(response));
         });
@@ -196,6 +199,50 @@ function assertOtherProviderRequest(request: CapturedRequest, provider: Exclude<
   assert.doesNotMatch(JSON.stringify({ url: request.url, body: request.body, headers: [...request.headers] }),
     /synthetic-gemini-(?:translation|summary)-key/);
 }
+
+test("tab-hosted options page can read saved credentials and persist settings in the packaged worker", async () => {
+  const stored = legacySettings("gemini");
+  const worker = loadWorker(stored);
+  const optionsSender = { url: "chrome-extension://distribution-worker-test/options.html", tab: { id: 31 } };
+  try {
+    const initial = await worker.message({ type: "settings/get" }, optionsSender);
+    assert.equal(initial.settings.providerSettings.gemini.apiKey, TRANSLATION_KEY);
+    assert.equal(initial.settings.summary.geminiApiKey, SUMMARY_KEY);
+    const next = structuredClone(stored);
+    next.providerSettings.gemini.apiKey = "synthetic-updated-gemini-key";
+    const saved = await worker.message({ type: "settings/update", settings: next }, optionsSender);
+    assert.equal(saved.ok, true, saved.error);
+    const reopened = await worker.message({ type: "settings/get" }, optionsSender);
+    assert.equal(reopened.settings.providerSettings.gemini.apiKey, "synthetic-updated-gemini-key");
+    assert.equal(reopened.settings.summary.geminiApiKey, SUMMARY_KEY);
+    assert.equal(reopened.settings.providerSettings.gemini.model, "gemini-flash-latest");
+    assert.equal(worker.requests.length, 0);
+  } finally { worker.dispose(); }
+});
+
+test("unknown and web senders cannot access credentials or mutate packaged-worker settings", async () => {
+  const worker = loadWorker(legacySettings("gemini"));
+  const next = legacySettings("openai");
+  try {
+    for (const sender of [
+      {},
+      { url: "https://article.example.test/reading" },
+      { url: "chrome-extension://distribution-worker-test.evil/options.html", tab: { id: 1 } },
+      { url: "https://example.test/chrome-extension://distribution-worker-test/options.html", tab: { id: 1 } },
+      { url: "chrome-extension://distribution-worker-test/options.html.evil", tab: { id: 1 } },
+    ]) {
+      const visible = await worker.message({ type: "settings/get" }, sender);
+      assert.equal(visible.ok, true);
+      assert.doesNotMatch(JSON.stringify(visible.settings), /synthetic-.*-key/);
+      const blocked = await worker.message({ type: "settings/update", settings: next }, sender);
+      assert.equal(blocked.ok, false);
+      const saved = await worker.message({ type: "settings/get" });
+      assert.equal(saved.settings.currentProvider, "gemini");
+      assert.equal(saved.settings.providerSettings.gemini.apiKey, TRANSLATION_KEY);
+    }
+    assert.equal(worker.requests.length, 0);
+  } finally { worker.dispose(); }
+});
 
 for (const provider of ["vertex", "openai", "anthropic", "custom", "gemini"] as const) {
   test(`distribution worker preserves stored ${provider} selection and fixes only Gemini models`, async () => {

@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.1.4
+
+- Fix settings saving and credential display when Chrome opens the options page in a tab. Check the sender's extension ID and exact extension-page URL instead of treating every tab as a content script; unknown and web senders remain unable to change settings or read keys.
+- Show sanitized save-error details while preserving unsaved drafts and redacting saved and edited API keys.
+- Default new Windows installations, including agents with no designated working folder, to the Windows Documents Known Folder under `PaperLens\extension`. Keep explicit installation paths and existing loaded extension folders for updates.
 
 - Use the elevated Windows sandbox with root-read-only permissions for Codex native summaries, verified with CLI 0.160.1. Windows commands may read files outside the temporary summary folder; writes and command network access remain blocked. Non-Windows retains the root-deny/temporary-folder-read profile.
 - Require a regular Codex sandbox setup marker before launching from the browser, using explicit `CODEX_HOME` or the Windows OS user profile. HOME/USERPROFILE overrides cannot redirect the default marker check.

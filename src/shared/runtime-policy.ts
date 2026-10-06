@@ -41,11 +41,30 @@ export function readingSettings(settings: ExtensionSettings): ExtensionSettings 
   return {...settings, providerSettings, summary};
 }
 
-export function runtimeRequestError(message: unknown, sender: {id?: string; tab?: unknown}, extensionId: string): string | null {
+interface RuntimeSender {
+  id?: string;
+  url?: string;
+  tab?: unknown;
+}
+
+export function isExtensionPageSender(sender: RuntimeSender, extensionId: string): boolean {
+  if (sender.id !== extensionId || !sender.url) return false;
+  try {
+    const url = new URL(sender.url);
+    return url.protocol === "chrome-extension:"
+      && url.hostname === extensionId
+      && !url.username && !url.password && !url.port
+      && ["/options.html", "/popup.html"].includes(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
+export function runtimeRequestError(message: unknown, sender: RuntimeSender, extensionId: string): string | null {
   if (sender.id && sender.id !== extensionId) return "Unauthorized extension sender.";
   const parsed = requestSchema.safeParse(message);
   if (!parsed.success) return "Invalid PaperLens request.";
-  if (sender.tab && ["settings/update", "cache/clear", "tabs/toggle-translate", "tabs/summarize-paper"].includes(parsed.data.type)) {
+  if (!isExtensionPageSender(sender, extensionId) && ["settings/update", "cache/clear", "tabs/toggle-translate", "tabs/summarize-paper", "toggle-translate"].includes(parsed.data.type)) {
     return "This action requires a PaperLens extension page.";
   }
   return null;

@@ -6,7 +6,9 @@ Requires only built-in Windows PowerShell 5.1 and .NET. Download this file
 and Install-Update-PaperLens.cmd from the same release into one folder.
 Double-click the CMD file. Choose U to select the exact unpacked extension
 folder already loaded in Chrome, or N for the first-install default:
-%LOCALAPPDATA%\PaperLens\extension. Keeping the loaded folder path preserves
+the Windows Documents Known Folder\PaperLens\extension. The Documents path
+follows Windows folder redirection, including a local OneDrive location.
+Keeping the loaded folder path preserves
 the unpacked extension identity and its browser-local settings.
 
 The helper downloads paperlens-VERSION.zip and SHA256SUMS from the latest
@@ -84,8 +86,9 @@ function Resolve-InstallDirectory {
     param([string]$Requested)
     if (-not $Requested) {
         if ($LocalReleaseDirectory) { throw 'Offline mode requires -InstallDirectory.' }
-        if (-not $env:LOCALAPPDATA) { throw 'LOCALAPPDATA is unavailable. Specify -InstallDirectory.' }
-        $default = Join-Path $env:LOCALAPPDATA 'PaperLens\extension'
+        $documents = [Environment]::GetFolderPath([Environment+SpecialFolder]::MyDocuments, [Environment+SpecialFolderOption]::DoNotVerify)
+        if (-not $documents) { throw 'Windows Documents folder is unavailable. Specify -InstallDirectory.' }
+        $default = Join-Path $documents 'PaperLens\extension'
         Write-Host 'Existing users: choose U and select the same folder already loaded in Chrome.'
         Write-Host 'This keeps the extension identity and browser-local settings.'
         Write-Host "New installation folder: $default"
