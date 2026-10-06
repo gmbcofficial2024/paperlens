@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -139,7 +139,7 @@ test("new-install default uses Windows Documents independently of cwd and profil
     assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
     const resolved = JSON.parse(result.stdout.trim().split(/\r?\n/).at(-1) ?? "");
     assert.equal(resolved.actual, resolved.expected);
-    assert.equal(resolved.cwd, root);
+    assert.equal(await realpath(resolved.cwd), await realpath(root));
     assert.notEqual(path.dirname(resolved.actual), root);
     assert.deepEqual(await readdir(root), ["resolve default fixture.ps1"], "resolving the default must not install or move files");
   } finally { await rm(root, { recursive: true, force: true }); }
