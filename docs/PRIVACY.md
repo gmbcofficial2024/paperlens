@@ -29,6 +29,8 @@ Use **Clear Cache** in Settings to remove cached translations. Disabling the cac
 
 If you deliberately install the optional Windows native host from the source checkout and choose Codex or Claude, the summary prompt is passed to that local CLI. The CLI uses its own login and external model service; this is not offline processing. The host runs in a temporary working directory, applies its CLI isolation settings and attempts to remove that directory after the request. CLI authentication and any provider-side logs follow the CLI's own behavior and policies.
 
+On Windows, the Codex native host uses a read-only filesystem profile that can read local files outside the temporary summary folder. File writes and model-generated command network access are blocked. This filesystem policy does not restrict reads to the captured article; see [native installation](https://github.com/gmbcofficial2024/paperlens/blob/main/docs/NATIVE_INSTALL.md) for the exact policy and setup requirements.
+
 ## Optional Windows installation and update helper
 
 The separately downloaded Windows helper contacts GitHub to read public release metadata and download the extension ZIP and its checksum. Those requests expose normal connection information, including your IP address, to GitHub. The helper does not read or transmit your article text, browser profile, API keys or browser settings. It writes extension files to the selected installation directory and keeps a backup when replacing an existing installation. The extension itself does not automatically download or run updates. GitHub's own service policies govern release downloads.

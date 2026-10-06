@@ -2,9 +2,9 @@
 
 ## Unreleased
 
-- Explicitly select the elevated Windows sandbox for Codex native summaries while preserving the root-deny, temporary-folder-read and network-off permission profile.
-- Check the Codex sandbox setup prerequisite before launching from the browser and show actionable setup guidance when it is missing.
-- Document the one-time administrator-approved Codex setup and source-host update procedure. Native-host source changes do not require reinstalling the browser extension.
+- Use the elevated Windows sandbox with root-read-only permissions for Codex native summaries, verified with CLI 0.160.1. Windows commands may read files outside the temporary summary folder; writes and command network access remain blocked. Non-Windows retains the root-deny/temporary-folder-read profile.
+- Require a regular Codex sandbox setup marker before launching from the browser, using explicit `CODEX_HOME` or the Windows OS user profile. HOME/USERPROFILE overrides cannot redirect the default marker check.
+- Document the tested local sandbox setup/verification command, the direct setup entry point's persistent global configuration change, and the source-host update procedure. Native-host source changes do not require reinstalling the browser extension.
 
 ## 1.1.3
 

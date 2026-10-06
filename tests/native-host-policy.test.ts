@@ -55,7 +55,7 @@ test("browser and native providers share the exact immutable summary system poli
   assert.equal(host.SUMMARY_SYSTEM_PROMPT, BROWSER_SUMMARY_SYSTEM_PROMPT);
 });
 
-test("Codex policy denies root and network, ignores user customization, and uses isolated cwd", () => {
+test("Codex uses the platform-supported read policy, denies writes and network, and ignores user customization", () => {
   const isolatedDirectory = path.join(tmpdir(), "paperlens-summary-policy");
   const args = host.buildCodexArgs(
     {
@@ -85,7 +85,9 @@ test("Codex policy denies root and network, ignores user customization, and uses
   );
   assert.equal(
     args.includes(
-      'permissions.paperlens_summary.filesystem={":root"="deny",":workspace_roots"={"."="read"}}',
+      process.platform === "win32"
+        ? 'permissions.paperlens_summary.filesystem={":root"="read"}'
+        : 'permissions.paperlens_summary.filesystem={":root"="deny",":workspace_roots"={"."="read"}}',
     ),
     true,
   );
@@ -404,7 +406,7 @@ test("Windows readiness follows case-insensitive explicit Codex home without glo
       spawnImpl: (_file: string, args: string[]) => {
         spawnCalls += 1;
         assert.equal(args.includes('windows.sandbox="elevated"'), true);
-        assert.equal(args.includes('permissions.paperlens_summary.filesystem={":root"="deny",":workspace_roots"={"."="read"}}'), true);
+        assert.equal(args.includes('permissions.paperlens_summary.filesystem={":root"="read"}'), true);
         return successfulChild();
       },
       timeoutMs: 1_000,

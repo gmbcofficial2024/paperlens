@@ -14,19 +14,27 @@ No Python installation is required. This repository supplies a Windows host laun
 
 ## Complete the Codex Windows sandbox setup
 
-PaperLens gives Codex a temporary working folder with read access, denies reads elsewhere, and disables command network access. The Windows `unelevated` restricted-token sandbox cannot enforce this split read policy. PaperLens therefore explicitly selects `windows.sandbox="elevated"` for Codex on Windows while keeping the same file and network limits. This sandbox runs commands under restricted sandbox users; it does not give the summarizing model administrator access.
+On Windows, PaperLens selects `windows.sandbox="elevated"` with a root-read-only filesystem profile (`":root"="read"`). Codex commands may read local files outside the temporary summary folder; this mode does not confine reads to the captured article. File writes and command network access remain blocked. Summaries still run in a temporary working folder and ignore user configuration and rules. The host retains root-deny/temporary-folder-read permissions on non-Windows systems.
 
-Open an interactive Codex CLI with the elevated sandbox selected:
+The Windows root-deny/temporary-folder-read profile is unsupported by the tested Codex sandbox, including its elevated backend. Update the native-host source as well as completing setup; setup alone does not repair an older host that still sends that profile. The procedure below was verified with Codex CLI `0.160.1`.
+
+Run this command in PowerShell to provision the sandbox if needed and verify it with a local echo command:
 
 ```powershell
-codex --sandbox read-only -c 'windows.sandbox="elevated"'
+codex sandbox -P paperlens_setup --include-managed-config -C "$env:WINDIR" `
+  -c 'windows.sandbox="elevated"' `
+  -c 'permissions.paperlens_setup.filesystem={":root"="read"}' `
+  -c 'permissions.paperlens_setup.network.enabled=false' `
+  -- "$env:WINDIR\System32\cmd.exe" /d /c 'echo PaperLens sandbox setup verified'
 ```
 
-Complete Codex's Windows sandbox setup and approve its administrator/UAC prompt when your machine permits it. No article needs to be submitted to a model to configure the sandbox. The setup creates the sandbox users and related Windows permissions/firewall rules. See [OpenAI's Windows sandbox instructions](https://learn.chatgpt.com/docs/windows/windows-sandbox) for the supported setup and enterprise-policy limitations.
+Approve the administrator/UAC prompt when your machine permits it. Successful verification prints `PaperLens sandbox setup verified`. This command makes no model request and does not save a global Windows sandbox mode in `config.toml`. Provisioning creates restricted sandbox users and related Windows permissions/firewall rules; the summarizing model does not receive administrator access. See [OpenAI's Windows sandbox instructions](https://learn.chatgpt.com/docs/windows/windows-sandbox) for setup and enterprise-policy limitations.
 
-The native host checks for the setup marker under `CODEX_HOME/.sandbox/setup_marker.json` (normally `%USERPROFILE%\.codex\.sandbox\setup_marker.json`) before starting Codex. If it is missing, the host reports the required setup instead of starting hidden administrator provisioning from the browser. The check is a prerequisite check, not a guarantee that Windows policy, sandbox users and logon rights are still healthy.
+Codex also provides `codex sandbox setup --elevated --current-user`. Its implementation in CLI `0.153.4` and `0.160.1` provisions the sandbox **and persistently saves** `[windows] sandbox="elevated"` in the active Codex `config.toml`, affecting other Codex sessions. Use that entry point only if you intend this persistent change. This behavior was checked in CLI source; the longer verification command above was the command actually executed.
 
-After setup, retry `Alt+S`. Do not remove the file/read restrictions or use `--dangerously-bypass-approvals-and-sandbox` to work around this error. If administrator-approved sandbox setup is blocked on a managed machine, choose an API summary provider or use a separately configured Claude CLI instead.
+The native host requires a regular setup marker at `CODEX_HOME/.sandbox/setup_marker.json` before starting Codex. An explicit `CODEX_HOME` is honored case-insensitively. Otherwise, the host uses `.codex` under the Windows OS user profile, matching Codex's default; changing `HOME` or `USERPROFILE` does not redirect this check. The usual path is `%USERPROFILE%\.codex\.sandbox\setup_marker.json`. A missing marker produces setup guidance without launching the CLI or hidden administrator provisioning. The marker is a prerequisite check, not a guarantee that Windows policy, sandbox users and logon rights are still healthy.
+
+After updating the host source and completing setup, retry `Alt+S`. Do not use `--dangerously-bypass-approvals-and-sandbox` to work around sandbox errors. If administrator-approved setup is blocked on a managed machine, choose an API summary provider or use a separately configured Claude CLI instead. Use an API summary provider if you need to avoid giving Codex commands read access to other local files.
 
 ## Register for your own extension ID
 

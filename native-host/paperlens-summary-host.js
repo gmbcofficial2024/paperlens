@@ -271,6 +271,11 @@ function requireWindowsCodexSandbox(environment) {
 }
 
 function buildCodexArgs(message, workingDirectory) {
+  // Windows Codex requires root read access even with its elevated sandbox.
+  // Keep writes denied. This mode can read outside the temporary workspace.
+  const filesystemPolicy = process.platform === "win32"
+    ? 'permissions.paperlens_summary.filesystem={":root"="read"}'
+    : 'permissions.paperlens_summary.filesystem={":root"="deny",":workspace_roots"={"."="read"}}';
   const args = [
     "exec",
     "--skip-git-repo-check",
@@ -283,7 +288,7 @@ function buildCodexArgs(message, workingDirectory) {
     "-c",
     'default_permissions="paperlens_summary"',
     "-c",
-    'permissions.paperlens_summary.filesystem={":root"="deny",":workspace_roots"={"."="read"}}',
+    filesystemPolicy,
     "-c",
     "permissions.paperlens_summary.network.enabled=false",
     "-c",
