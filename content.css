@@ -1,0 +1,507 @@
+/* PaperLens inline reading note. The ID-scoped reset protects controls and typography from publisher styles. */
+#paperlens-paper-summary.paperlens-summary {
+  all: initial !important;
+  --pl-paper: #fffefa;
+  --pl-ink: #252c29;
+  --pl-muted: #606b65;
+  --pl-line: #dce2db;
+  --pl-accent: #345b43;
+  --pl-soft: #f0f4ed;
+  --pl-error: #a02f26;
+  display: block !important;
+  box-sizing: border-box !important;
+  color-scheme: light dark !important;
+  color: var(--pl-ink) !important;
+  background: var(--pl-paper) !important;
+  border: 1px solid var(--pl-line) !important;
+  border-radius: 5px !important;
+  font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 400 !important;
+  line-height: 1.8 !important;
+  text-align: left !important;
+  width: 100% !important;
+  max-width: 680px !important;
+  min-width: 0 !important;
+  margin: 22px auto 28px !important;
+  padding: 0 !important;
+  overflow-wrap: anywhere !important;
+  isolation: isolate !important;
+}
+
+#paperlens-paper-summary.paperlens-summary :where(*) {
+  all: revert !important;
+  box-sizing: border-box !important;
+  color: inherit !important;
+  font: inherit !important;
+  text-align: left !important;
+  letter-spacing: normal !important;
+  white-space: normal !important;
+}
+
+#paperlens-paper-summary.paperlens-summary :where(*)::before,
+#paperlens-paper-summary.paperlens-summary :where(*)::after {
+  content: none !important;
+}
+
+#paperlens-paper-summary.paperlens-summary [hidden][hidden] {
+  display: none !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-top {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+  border-bottom: 1px solid var(--pl-line) !important;
+  padding: 15px 26px !important;
+  margin: 0 !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-brand {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  font-family: Georgia, "Times New Roman", serif !important;
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.7px !important;
+  line-height: 1.4 !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-brand::after {
+  content: "" !important;
+  display: block !important;
+  width: 5px !important;
+  height: 5px !important;
+  border-radius: 50% !important;
+  background: var(--pl-accent) !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-status {
+  color: var(--pl-muted) !important;
+  font-size: 12px !important;
+  line-height: 1.6 !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-intro {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  flex-wrap: wrap !important;
+  gap: 12px !important;
+  padding: 23px 28px 20px !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-title {
+  margin: 0 !important;
+  color: var(--pl-ink) !important;
+  font-size: 23px !important;
+  font-weight: 700 !important;
+  line-height: 1.5 !important;
+  letter-spacing: -0.8px !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-kind {
+  appearance: auto !important;
+  display: inline-block !important;
+  color: var(--pl-muted) !important;
+  background: var(--pl-paper) !important;
+  border: 1px solid var(--pl-line) !important;
+  border-radius: 3px !important;
+  font-size: 12px !important;
+  line-height: 1.7 !important;
+  padding: 4px 7px !important;
+  min-height: 32px !important;
+  max-width: 100% !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-body {
+  display: block !important;
+  color: var(--pl-ink) !important;
+  padding: 0 28px 23px !important;
+  margin: 0 !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-section {
+  display: block !important;
+  padding: 0 !important;
+  margin: 0 0 19px !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-body h3 {
+  display: block !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  line-height: 1.6 !important;
+  color: var(--pl-accent) !important;
+  margin: 0 0 6px !important;
+  padding: 0 !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-body p {
+  display: block !important;
+  font-size: 15px !important;
+  line-height: 1.85 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-body p + p {
+  margin-top: 9px !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-takeaway {
+  padding: 19px 21px !important;
+  background: var(--pl-soft) !important;
+  border-left: 2px solid var(--pl-accent) !important;
+  margin: 0 0 23px !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-takeaway p {
+  font-size: 17px !important;
+  line-height: 1.85 !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.3px !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-body ul,
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-body ol {
+  display: block !important;
+  margin: 7px 0 !important;
+  padding: 0 0 0 21px !important;
+  list-style-position: outside !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-body ul {
+  list-style-type: disc !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-body ol {
+  list-style-type: decimal !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-body li {
+  display: list-item !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 1.85 !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-body li + li {
+  margin-top: 5px !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-body strong {
+  font-weight: 700 !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-body em {
+  font-style: italic !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-body a {
+  display: inline !important;
+  color: var(--pl-accent) !important;
+  text-decoration: underline !important;
+  text-underline-offset: 3px !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-body blockquote {
+  display: block !important;
+  margin: 10px 0 !important;
+  border-left: 2px solid var(--pl-line) !important;
+  padding: 4px 0 4px 15px !important;
+  color: var(--pl-muted) !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-body code {
+  font-family: Consolas, "SFMono-Regular", monospace !important;
+  font-size: 0.9em !important;
+  background: var(--pl-soft) !important;
+  padding: 1px 4px !important;
+  border-radius: 2px !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-body pre {
+  display: block !important;
+  padding: 12px !important;
+  margin: 10px 0 !important;
+  background: var(--pl-soft) !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-body pre code {
+  display: block !important;
+  white-space: pre !important;
+  padding: 0 !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-more {
+  display: block !important;
+  border-top: 1px solid var(--pl-line) !important;
+  padding-top: 11px !important;
+  margin: 4px 0 0 !important;
+}
+
+#paperlens-paper-summary.paperlens-summary summary {
+  display: list-item !important;
+  cursor: pointer !important;
+  list-style-position: inside !important;
+  font-size: 12px !important;
+  color: var(--pl-muted) !important;
+  line-height: 1.8 !important;
+}
+
+#paperlens-paper-summary.paperlens-summary summary::marker {
+  color: var(--pl-muted) !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-more[open] > summary {
+  margin-bottom: 17px !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-footer {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  flex-wrap: wrap !important;
+  gap: 12px 18px !important;
+  border-top: 1px solid var(--pl-line) !important;
+  padding: 13px 26px !important;
+  margin: 0 !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-scope {
+  display: block !important;
+  flex: 1 1 200px !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-scope-content {
+  color: var(--pl-muted) !important;
+  font-size: 12px !important;
+  line-height: 1.8 !important;
+  padding-top: 8px !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-scope-content p {
+  margin: 0 0 5px !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-scope-content ul {
+  margin: 6px 0 0 !important;
+  padding-left: 18px !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-actions {
+  display: flex !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  justify-content: flex-start !important;
+  gap: 6px 14px !important;
+}
+
+#paperlens-paper-summary.paperlens-summary button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  appearance: none !important;
+  cursor: pointer !important;
+  border: 0 !important;
+  border-radius: 2px !important;
+  background: transparent !important;
+  color: var(--pl-ink) !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 1.8 !important;
+  min-height: 28px !important;
+  padding: 1px 0 !important;
+  margin: 0 !important;
+  text-decoration: none !important;
+}
+
+#paperlens-paper-summary.paperlens-summary button:hover {
+  text-decoration: underline !important;
+  text-underline-offset: 3px !important;
+}
+
+#paperlens-paper-summary.paperlens-summary :is(button, select, summary, a):focus-visible {
+  outline: 2px solid var(--pl-accent) !important;
+  outline-offset: 3px !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-copy-feedback {
+  color: var(--pl-muted) !important;
+  font-size: 11px !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-source-changed {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+  padding: 12px 16px !important;
+  margin: 0 28px 20px !important;
+  background: var(--pl-soft) !important;
+  border-left: 2px solid var(--pl-accent) !important;
+  color: var(--pl-muted) !important;
+  font-size: 12px !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-source-changed p {
+  flex: 1 1 300px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-update,
+#paperlens-paper-summary.paperlens-summary .paperlens-summary-retry {
+  color: var(--pl-accent) !important;
+  font-weight: 700 !important;
+}
+
+#paperlens-paper-summary.paperlens-summary.paperlens-summary-loading .paperlens-summary-body,
+#paperlens-paper-summary.paperlens-summary.paperlens-summary-cancelled .paperlens-summary-body {
+  color: var(--pl-muted) !important;
+}
+
+#paperlens-paper-summary.paperlens-summary.paperlens-summary-error .paperlens-summary-status,
+#paperlens-paper-summary.paperlens-summary.paperlens-summary-error .paperlens-summary-body {
+  color: var(--pl-error) !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  #paperlens-paper-summary.paperlens-summary {
+    --pl-paper: #1f2422;
+    --pl-ink: #e7ebe7;
+    --pl-muted: #aab7ae;
+    --pl-line: #3d4940;
+    --pl-accent: #b2cfb5;
+    --pl-soft: #2a352d;
+    --pl-error: #efaaa1;
+  }
+}
+
+@media (max-width: 500px) {
+  #paperlens-paper-summary.paperlens-summary {
+    margin: 16px 0 22px !important;
+  }
+  #paperlens-paper-summary.paperlens-summary .paperlens-summary-top {
+    padding: 13px 18px !important;
+  }
+  #paperlens-paper-summary.paperlens-summary .paperlens-summary-intro {
+    padding: 20px 18px !important;
+  }
+  #paperlens-paper-summary.paperlens-summary .paperlens-summary-title {
+    font-size: 21px !important;
+  }
+  #paperlens-paper-summary.paperlens-summary .paperlens-summary-body {
+    padding: 0 18px 20px !important;
+  }
+  #paperlens-paper-summary.paperlens-summary .paperlens-summary-takeaway {
+    padding: 15px !important;
+  }
+  #paperlens-paper-summary.paperlens-summary .paperlens-summary-footer {
+    padding: 13px 18px !important;
+  }
+  #paperlens-paper-summary.paperlens-summary .paperlens-summary-source-changed {
+    margin: 0 18px 18px !important;
+  }
+}
+
+@media (pointer: coarse) {
+  #paperlens-paper-summary.paperlens-summary :is(button, select, summary) {
+    min-height: 44px !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+  }
+}
+.paperlens-translation {
+  background: linear-gradient(90deg, rgba(35, 129, 76, 0.08), rgba(35, 129, 76, 0.015));
+  border-left: 3px solid #23814c;
+  border-radius: 0 5px 5px 0;
+  box-sizing: border-box;
+  color: #38443c;
+  font-family: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  font-size: 0.94em;
+  font-style: normal;
+  line-height: 1.72;
+  margin-bottom: 13px;
+  margin-top: 5px;
+  padding: 6px 11px 7px;
+  transition: background-color 0.18s ease, border-color 0.18s ease, opacity 0.2s ease;
+}
+
+.paperlens-translation.paperlens-skeleton {
+  color: #7b8780;
+  animation: paperlens-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes paperlens-pulse {
+  0%, 100% { opacity: 0.58; }
+  50% { opacity: 1; }
+}
+
+.paperlens-translation.paperlens-error {
+  background: linear-gradient(90deg, rgba(180, 35, 24, 0.08), rgba(180, 35, 24, 0.015));
+  border-left-color: #b42318;
+  color: #b42318;
+}
+
+.paperlens-retry-btn {
+  background: #fff;
+  border: 1px solid #b42318;
+  border-radius: 999px;
+  color: #b42318;
+  cursor: pointer;
+  display: inline-block;
+  font-family: ui-sans-serif, "Segoe UI", system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  margin-left: 8px;
+  padding: 5px 10px;
+  vertical-align: middle;
+}
+
+.paperlens-retry-btn:hover {
+  background: #fff1f0;
+}
+
+/* Sentence-level highlighting */
+.paperlens-sentence {
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.paperlens-sentence:hover {
+  background-color: rgba(35, 129, 76, 0.08);
+  box-shadow: 0 0 0 2px rgba(35, 129, 76, 0.05);
+}
+
+.paperlens-highlight {
+  background-color: rgba(255, 224, 138, 0.78) !important;
+  box-shadow: 0 0 0 2px rgba(183, 121, 31, 0.12);
+}
+
+.paperlens-translation .paperlens-highlight {
+  background-color: rgba(165, 214, 184, 0.66) !important;
+  box-shadow: 0 0 0 2px rgba(35, 129, 76, 0.13);
+}
+
+/* Gap sentences (not covered by LLM alignment, fallback-split) */
+.paperlens-sentence-gap {
+  opacity: 0.86;
+}
+
+.paperlens-sentence-gap.paperlens-highlight {
+  background-color: rgba(202, 232, 240, 0.8) !important;
+}

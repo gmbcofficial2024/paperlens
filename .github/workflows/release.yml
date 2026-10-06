@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.repository == 'gmbcofficial2024/paperlens'
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Check release versions
+        env:
+          PAPERLENS_RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          @'
+          import { readFileSync } from "node:fs";
+          const manifest = JSON.parse(readFileSync("manifest.json", "utf8"));
+          const metadata = JSON.parse(readFileSync("package.json", "utf8"));
+          const lockfile = JSON.parse(readFileSync("package-lock.json", "utf8"));
+          if ([metadata.version, lockfile.version, lockfile.packages?.[""]?.version].some(version => version !== manifest.version)) {
+            throw new Error("Manifest, package, lockfile and lockfile root-package versions must match.");
+          }
+          if (process.env.PAPERLENS_RELEASE_TAG !== `v${manifest.version}`) {
+            throw new Error(`Release tag must be v${manifest.version}.`);
+          }
+          '@ | node --input-type=module
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Check types
+        run: npm run typecheck
+      - name: Run regression tests
+        run: npm test
+      - name: Build and checksum release assets
+        run: node scripts/package-share.mjs --release-tag $env:GITHUB_REF_NAME
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = (Get-Content -LiteralPath manifest.json -Raw | ConvertFrom-Json).version
+          gh release create $env:GITHUB_REF_NAME `
+            "release/paperlens-$version.zip" `
+            "release/SHA256SUMS" `
+            "release/Install-Update-PaperLens.cmd" `
+            "release/install-update-paperlens.ps1" `
+            --repo $env:GITHUB_REPOSITORY `
+            --verify-tag `
+            --title "PaperLens $version" `
+            --generate-notes

@@ -1,0 +1,35 @@
+{
+  "name": "paperlens",
+  "version": "1.1.1",
+  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gmbcofficial2024/paperlens.git"
+  },
+  "homepage": "https://github.com/gmbcofficial2024/paperlens#readme",
+  "bugs": {
+    "url": "https://github.com/gmbcofficial2024/paperlens/issues"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "description": "Chrome extension for translating academic papers in-browser using LLM APIs",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "package:share": "node scripts/package-share.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node scripts/run-tests.mjs",
+    "test:providers:live": "node scripts/provider-canary.mjs"
+  },
+  "dependencies": {
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.287",
+    "esbuild": "^0.28.2",
+    "linkedom": "^0.18.12",
+    "typescript": "^5.7.0"
+  }
+}

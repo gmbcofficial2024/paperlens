@@ -1,0 +1,35 @@
+node_modules/
+dist/
+release/
+.test-build/
+.test-build-*/
+.playwright-cli/
+.playwright-mcp/
+output/playwright/
+/.agents/
+/.codex/
+/.superpowers/
+/vendor/
+/output/
+
+# Generated extension bundles from the legacy root build layout.
+background.js
+content.js
+options.js
+popup.js
+
+*.map
+*.tsbuildinfo
+
+# Credentials, local registration and workstation state.
+.env
+.env.*
+!.env.example
+native-host/com.paperlens.summary_host.json
+*.pem
+*.key
+
+# Local investigation notes are kept outside the public source snapshot.
+docs/research/
+docs/superpowers/
+docs/VALIDATION-*.md

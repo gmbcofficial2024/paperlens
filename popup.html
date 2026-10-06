@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 318px;
+      background:
+        linear-gradient(180deg, #fbfdfb 0%, #f3f8f4 100%),
+        repeating-linear-gradient(90deg, rgba(35, 129, 76, 0.05) 0 1px, transparent 1px 18px);
+      color: #17231c;
+      font-family: ui-sans-serif, "Segoe UI", system-ui, sans-serif;
+      font-size: 13px;
+      padding: 16px;
+    }
+    .brand {
+      align-items: center;
+      display: flex;
+      gap: 10px;
+      margin-bottom: 13px;
+    }
+    .brand-mark {
+      background: #23814c;
+      border-radius: 999px;
+      box-shadow: 0 0 0 5px rgba(35, 129, 76, 0.12);
+      flex: 0 0 auto;
+      height: 10px;
+      width: 10px;
+    }
+    h1 {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: 0;
+      line-height: 1.1;
+    }
+    .tagline {
+      color: #6a766e;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      margin-top: 3px;
+      text-transform: uppercase;
+    }
+    .provider-info {
+      background: rgba(255, 255, 255, 0.82);
+      border: 1px solid rgba(49, 92, 67, 0.15);
+      border-radius: 8px;
+      color: #4f5d54;
+      font-size: 11px;
+      line-height: 1.45;
+      margin-bottom: 12px;
+      padding: 9px 10px;
+    }
+    .actions {
+      display: grid;
+      gap: 8px;
+    }
+    .btn {
+      align-items: center;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 800;
+      justify-content: space-between;
+      min-height: 42px;
+      padding: 10px 12px;
+      text-align: left;
+      transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+      width: 100%;
+    }
+    .btn:hover {
+      transform: translateY(-1px);
+    }
+    .btn-primary {
+      background: #23814c;
+      box-shadow: 0 10px 22px rgba(35, 129, 76, 0.18);
+      color: #fff;
+    }
+    .btn-primary:hover { background: #1f7444; }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.88);
+      border-color: rgba(49, 92, 67, 0.16);
+      color: #243027;
+    }
+    .btn-secondary:hover {
+      background: #ffffff;
+      box-shadow: 0 8px 18px rgba(17, 35, 25, 0.08);
+    }
+    .btn-kbd {
+      border: 1px solid rgba(255, 255, 255, 0.34);
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 800;
+      line-height: 1;
+      padding: 5px 7px;
+    }
+    .btn-secondary .btn-kbd {
+      border-color: rgba(35, 129, 76, 0.16);
+      color: #66726b;
+    }
+    .shortcut {
+      color: #748078;
+      font-size: 11px;
+      line-height: 1.45;
+      margin-top: 11px;
+      text-align: center;
+    }
+    kbd {
+      background: #fff;
+      border: 1px solid rgba(49, 92, 67, 0.18);
+      border-radius: 4px;
+      color: #26362c;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 1px 5px;
+    }
+    .status {
+      color: #556259;
+      font-size: 11px;
+      line-height: 1.4;
+      min-height: 16px;
+      margin-top: 9px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="brand">
+    <span class="brand-mark"></span>
+    <div>
+      <h1>PaperLens</h1>
+      <div class="tagline">Research reading layer</div>
+    </div>
+  </div>
+  <div class="provider-info" id="provider-info">Loading...</div>
+  <div class="actions">
+    <button class="btn btn-primary" id="translate-btn">
+      <span>Translate Page</span>
+      <span class="btn-kbd">Alt+T</span>
+    </button>
+    <button class="btn btn-secondary" id="summary-btn">
+      <span>Summarize Paper</span>
+      <span class="btn-kbd">Alt+S</span>
+    </button>
+    <button class="btn btn-secondary" id="settings-btn">
+      <span>Settings</span>
+      <span class="btn-kbd">Open</span>
+    </button>
+  </div>
+  <div class="shortcut">Use Chrome shortcuts page if these keys conflict.</div>
+  <div class="status" id="status"></div>
+  <script src="popup.js"></script>
+</body>
+</html>

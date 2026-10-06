@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>PaperLens Settings</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background:
+        linear-gradient(180deg, #fbfdfb 0%, #f4f8f5 100%),
+        repeating-linear-gradient(90deg, rgba(35, 129, 76, 0.04) 0 1px, transparent 1px 22px);
+      color: #17231c;
+      font-family: ui-sans-serif, "Segoe UI", system-ui, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      margin: 0;
+      padding: 28px;
+    }
+    .shell {
+      margin: 0 auto;
+      max-width: 780px;
+    }
+    .page-header {
+      align-items: end;
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 18px;
+    }
+    .eyebrow {
+      color: #23814c;
+      font-size: 11px;
+      font-weight: 850;
+      letter-spacing: 0.09em;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+    h1 {
+      font-size: 28px;
+      font-weight: 850;
+      letter-spacing: 0;
+      line-height: 1.15;
+    }
+    .header-copy {
+      color: #66726b;
+      font-size: 13px;
+      margin-top: 7px;
+      max-width: 560px;
+    }
+    .panel {
+      background: rgba(255, 255, 255, 0.86);
+      border: 1px solid rgba(49, 92, 67, 0.15);
+      border-radius: 9px;
+      box-shadow: 0 14px 34px rgba(17, 35, 25, 0.07);
+      margin-bottom: 14px;
+      padding: 18px;
+    }
+    .panel-header {
+      align-items: start;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 15px;
+    }
+    h2 {
+      color: #17231c;
+      font-size: 16px;
+      font-weight: 850;
+      letter-spacing: 0;
+      line-height: 1.25;
+      margin: 0;
+    }
+    .panel-note {
+      color: #738078;
+      font-size: 12px;
+      margin-top: 4px;
+    }
+    .grid {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .grid .field-wide {
+      grid-column: 1 / -1;
+    }
+    .field {
+      margin-bottom: 14px;
+    }
+    .grid .field {
+      margin-bottom: 0;
+    }
+    label {
+      color: #4f5d54;
+      display: block;
+      font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 5px;
+    }
+    select,
+    input[type="text"],
+    input[type="password"],
+    input[type="url"],
+    input[type="number"],
+    textarea {
+      background: #fff;
+      border: 1px solid rgba(49, 92, 67, 0.18);
+      border-radius: 7px;
+      color: #17231c;
+      font-family: inherit;
+      font-size: 14px;
+      outline: none;
+      padding: 9px 10px;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+      width: 100%;
+    }
+    textarea {
+      min-height: 104px;
+      resize: vertical;
+    }
+    select:focus,
+    input:focus,
+    textarea:focus {
+      border-color: rgba(35, 129, 76, 0.72);
+      box-shadow: 0 0 0 3px rgba(35, 129, 76, 0.11);
+    }
+    .checkbox-field {
+      align-items: center;
+      background: #f7fbf8;
+      border: 1px solid rgba(49, 92, 67, 0.12);
+      border-radius: 7px;
+      display: flex;
+      gap: 9px;
+      margin-bottom: 14px;
+      padding: 10px;
+    }
+    .checkbox-field input[type="checkbox"] {
+      accent-color: #23814c;
+      height: 16px;
+      width: 16px;
+    }
+    .checkbox-field label {
+      margin: 0;
+    }
+    .help-text {
+      color: #76827a;
+      font-size: 11px;
+      margin-top: 4px;
+    }
+    code {
+      background: #edf5f0;
+      border: 1px solid rgba(35, 129, 76, 0.12);
+      border-radius: 4px;
+      color: #1f7444;
+      font-size: 11px;
+      padding: 1px 4px;
+    }
+    .hidden { display: none; }
+    .btn-row {
+      bottom: 0;
+      display: flex;
+      gap: 9px;
+      justify-content: flex-end;
+      margin-top: 18px;
+      position: sticky;
+    }
+    .btn {
+      border: 1px solid rgba(49, 92, 67, 0.18);
+      border-radius: 7px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 850;
+      padding: 10px 18px;
+      transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+    }
+    .btn:hover {
+      transform: translateY(-1px);
+    }
+    .btn-primary {
+      background: #23814c;
+      border-color: #23814c;
+      box-shadow: 0 10px 22px rgba(35, 129, 76, 0.18);
+      color: #fff;
+    }
+    .btn-primary:hover { background: #1f7444; }
+    .btn-danger {
+      background: #fff;
+      border-color: rgba(180, 35, 24, 0.35);
+      color: #b42318;
+    }
+    .btn-danger:hover { background: #fff4f2; }
+    .toast {
+      background: #17231c;
+      border-radius: 7px;
+      bottom: 20px;
+      box-shadow: 0 14px 34px rgba(17, 35, 25, 0.24);
+      color: #fff;
+      font-size: 13px;
+      opacity: 0;
+      padding: 10px 16px;
+      pointer-events: none;
+      position: fixed;
+      right: 20px;
+      transition: opacity 0.3s;
+    }
+    .toast.show { opacity: 1; }
+    @media (max-width: 720px) {
+      body { padding: 18px; }
+      .page-header { display: block; }
+      .grid { grid-template-columns: 1fr; }
+      .btn-row { position: static; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="page-header">
+      <div>
+        <div class="eyebrow">PaperLens control room</div>
+        <h1>Settings</h1>
+        <p class="header-copy">Translate and summarize papers and articles on the page you are reading.</p>
+      </div>
+    </header>
+
+    <section class="panel" aria-label="Quick start">
+      <h2>Start with one API key</h2>
+      <p class="panel-note">Choose Google Gemini, enter your own API key, then click Save Settings. A blank Gemini summary key reuses that saved key. No local CLI is needed.</p>
+      <p class="panel-note">Open a paper or article and press Alt+T to translate or Alt+S to summarize. Requests use your provider account and may incur API charges. Only content loaded on the page can be read.</p>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <div>
+          <h2>Translation Provider</h2>
+          <p class="panel-note">Used for paragraph translation and sentence alignment.</p>
+        </div>
+      </div>
+      <div class="grid">
+        <div class="field">
+          <label for="provider">Provider</label>
+          <select id="provider"></select>
+        </div>
+        <div class="field">
+          <label for="api-key">API Key</label>
+          <input type="password" id="api-key" placeholder="Enter API key">
+          <div class="help-text" id="translation-key-storage-help">Keys persist only after Save Settings. They are local to this browser profile and are not synced. Storage is separate after extension removal, profile changes, or loading the repository root and dist as separate unpacked extensions.</div>
+        </div>
+        <div class="field" id="model-field">
+          <label for="model">Model</label>
+          <select id="model"></select>
+        </div>
+        <div class="field hidden" id="custom-model-field">
+          <label for="custom-model">Custom Model</label>
+          <input type="text" id="custom-model" placeholder="e.g., llama-3.1-70b-instruct">
+        </div>
+        <div class="field field-wide hidden" id="custom-url-field">
+          <label for="custom-url">Custom API URL</label>
+          <input type="url" id="custom-url" placeholder="https://your-api.com/v1/chat/completions">
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <div>
+          <h2>Translation Behavior</h2>
+          <p class="panel-note">Controls request batching, cache use, and translation style.</p>
+        </div>
+      </div>
+      <div class="grid">
+        <div class="field">
+          <label for="concurrency">Max Concurrent Requests</label>
+          <input type="number" id="concurrency" min="1" max="10" value="3">
+        </div>
+        <div class="field">
+          <div class="checkbox-field">
+            <input type="checkbox" id="cache-enabled">
+            <label for="cache-enabled">Enable translation cache</label>
+          </div>
+          <button class="btn btn-danger" id="clear-cache-btn">Clear Cache</button>
+        </div>
+        <div class="field field-wide">
+          <label for="custom-prompt">Additional Translation Instructions</label>
+          <textarea id="custom-prompt" rows="4"
+            placeholder="e.g., Use formal Korean, Keep 'neural network' in English..."></textarea>
+          <div class="help-text">These instructions are included with every translation request.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <div>
+          <h2>Paper &amp; Article Summary</h2>
+          <p class="panel-note">Uses the loaded source in one request, with a structure adapted to papers or ordinary articles.</p>
+        </div>
+      </div>
+      <div class="checkbox-field">
+        <input type="checkbox" id="summary-auto-generate">
+        <label for="summary-auto-generate">Generate summary before translation</label>
+      </div>
+      <div class="grid">
+        <div class="field">
+          <label for="summary-provider">Summary Provider</label>
+          <select id="summary-provider">
+            <option value="gemini">Google Gemini API</option>
+            <option value="vertex">Google Vertex AI API</option>
+            <option value="codex">Codex CLI (advanced local setup)</option>
+            <option value="claude">Claude CLI (advanced local setup)</option>
+          </select>
+          <div class="help-text">Gemini and Vertex work directly with your API keys. Optional Codex and Claude require a separately installed Native Messaging host and a logged-in CLI.</div>
+        </div>
+      </div>
+      <div id="summary-codex-fields" class="grid">
+        <div class="field">
+          <label for="summary-codex-model">Codex Model</label>
+          <input type="text" id="summary-codex-model" placeholder="gpt-5.5">
+          <div class="help-text">Default: gpt-5.5. Passed as <code>codex exec -m</code>.</div>
+        </div>
+      </div>
+      <div id="summary-claude-fields" class="grid hidden">
+        <div class="field">
+          <label for="summary-claude-model">Claude Model</label>
+          <input type="text" id="summary-claude-model" placeholder="opus">
+          <div class="help-text">Default: opus. Claude CLI treats aliases such as opus/sonnet as latest model aliases.</div>
+        </div>
+      </div>
+      <div id="summary-gemini-fields" class="grid hidden">
+        <div class="field">
+          <label for="summary-gemini-api-key">Gemini Summary API Key</label>
+          <input type="password" id="summary-gemini-api-key" placeholder="Leave blank to reuse the translation Gemini key">
+          <div class="help-text" id="summary-gemini-key-fallback-help">A blank key reuses the saved translation Gemini key.</div>
+        </div>
+        <div class="field">
+          <label for="summary-gemini-model">Gemini Summary Model</label>
+          <select id="summary-gemini-model"></select>
+        </div>
+      </div>
+      <div id="summary-vertex-fields" class="grid hidden">
+        <div class="field">
+          <label for="summary-vertex-api-key">Vertex Summary API Key</label>
+          <input type="password" id="summary-vertex-api-key" placeholder="Leave blank to reuse the translation Vertex key">
+          <div class="help-text" id="summary-vertex-key-fallback-help">A blank key reuses the saved translation Vertex key.</div>
+        </div>
+        <div class="field">
+          <label for="summary-vertex-model">Vertex Summary Model</label>
+          <select id="summary-vertex-model"></select>
+          <div class="help-text">Use the Vertex Model Garden Gemini model ID.</div>
+        </div>
+      </div>
+      <div class="field">
+        <label for="summary-prompt">Summary Prompt</label>
+        <textarea id="summary-prompt" rows="5"
+          placeholder="Tell the summary model what to focus on..."></textarea>
+      </div>
+    </section>
+
+    <div class="btn-row">
+      <button class="btn" id="test-connection-btn">Test saved API connection</button>
+      <button class="btn btn-primary" id="save-btn">Save Settings</button>
+    </div>
+    <p class="help-text" id="connection-status" role="status">Save first. The connection test sends a short test sentence to your translation provider and may incur a small API charge.</p>
+  </main>
+
+  <div class="toast" id="toast"></div>
+  <script src="options.js"></script>
+</body>
+</html>
