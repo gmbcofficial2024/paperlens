@@ -4,6 +4,85 @@
 
 PaperLens adds Korean translation beside original English passages and structured inline summaries to scientific papers and ordinary web articles.
 
+## AI 에이전트에게 설치 맡기기
+
+Codex, Claude Code 등 컴퓨터에서 명령을 실행할 수 있는 AI 에이전트에 아래 요청과 저장소 링크를 전달하세요.
+
+```text
+https://github.com/gmbcofficial2024/paperlens
+README의 AI 에이전트 설치 절차를 읽고 이 컴퓨터의 Chrome에 PaperLens를 설치해줘.
+일반 사용자용 Release와 Gemini API 설정을 사용해줘.
+기존 설치가 있으면 현재 Chrome에 등록된 폴더를 유지해서 업데이트해줘.
+Chrome 등록은 가능한 브라우저 도구로 진행하고, 직접 해야 하는 단계는 정확히 안내해줘.
+API 키는 내가 Settings에 직접 입력할게. 완료한 단계와 남은 단계를 알려줘.
+```
+
+### AI agents: installation contract
+
+이 절차는 **사용자 PC에 확장을 설치하는 작업**입니다. 기본 경로는 빌드된 공개 Release이며 Git, Node, Python, Codex CLI 또는 Claude CLI 설치가 필요하지 않습니다. 설치를 도와주는 에이전트 자체의 실행 환경은 별도로 준비되어 있어야 합니다.
+
+1. **환경과 기존 설치를 확인합니다.** 아래 자동 명령은 Windows용입니다. macOS/Linux에서는 [ZIP 직접 설치](#zip-직접-설치)를 따릅니다. 기존 PaperLens가 있으면 Chrome에 등록된 정확한 폴더를 사용합니다. 경로를 확인할 수 없다면 사용자에게 확인한 뒤 업데이트합니다. 신규 설치의 기본값은 `%LOCALAPPDATA%\PaperLens\extension`입니다.
+2. **같은 Release의 파일을 받습니다.** 공개 API `https://api.github.com/repos/gmbcofficial2024/paperlens/releases/latest`의 `assets`에서 `install-update-paperlens.ps1`, `Install-Update-PaperLens.cmd`, `SHA256SUMS`를 받습니다. 두 도우미의 SHA-256을 먼저 확인하고 실행합니다. GitHub 로그인이나 토큰은 필요하지 않습니다.
+3. **명시적인 경로로 실행합니다.** `.cmd`의 대화형 메뉴 대신 `.ps1`에 `-InstallDirectory`를 전달합니다. 도우미가 최신 ZIP 다운로드, ZIP 체크섬·파일 검증, 기존 폴더 백업과 갱신을 수행합니다. 소스 저장소처럼 다른 파일이 섞인 폴더가 거부되면 그 검사를 우회하지 말고 [기존 설치 업데이트 안내](docs/INSTALL.md#기존-설치-업데이트하기)를 따릅니다.
+4. **파일 설치를 확인합니다.** 프로세스 종료 코드가 `0`인지, 설치된 `manifest.json`의 버전이 선택한 Release 태그와 같은지, manifest가 참조하는 런타임 파일이 존재하는지 확인합니다. 업데이트의 백업 위치도 기록합니다.
+5. **Chrome에 적용합니다.** 사용 가능한 브라우저 도구가 있으면 사용자가 사용할 Chrome 프로필에서 `chrome://extensions`를 열어 개발자 모드와 **Load unpacked**를 진행합니다. 도구가 없으면 설치 경로와 이 두 동작을 사용자에게 안내합니다. 기존 설치는 제거하지 않고 **Reload**한 뒤 기사 탭을 새로고침합니다. 도우미만 실행했다고 Chrome 등록까지 완료한 것으로 보고하지 않습니다.
+6. **키 입력과 최종 상태를 안내합니다.** 사용자가 Settings에서 자신의 키를 입력하고 저장하도록 안내합니다. API 키를 채팅, 로그, 파일 또는 저장소에 기록하지 않습니다. 유료 API 연결 테스트나 요약은 사용자가 요청했을 때 실행합니다. 마지막에는 버전, 설치 경로, Chrome 등록·다시 로드 상태, API 키 설정 상태와 남은 사용자 동작을 보고합니다.
+
+<details>
+<summary>Windows 에이전트용 PowerShell 명령 예시</summary>
+
+Windows PowerShell 5.1과 PowerShell 7에서 사용할 수 있습니다. 아래는 **신규 설치** 예시입니다. 업데이트에서는 첫 번째 설치 경로를 기존 Chrome에 등록된 폴더의 절대 경로로 바꿉니다. 다운로드한 코드는 같은 Release의 체크섬이 일치할 때 실행합니다.
+
+```powershell
+$ErrorActionPreference = 'Stop'
+$paperlensInstallDirectory = Join-Path $env:LOCALAPPDATA 'PaperLens\extension'
+$paperlensDownloadDirectory = Join-Path ([IO.Path]::GetTempPath()) ('PaperLens-agent-' + [Guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $paperlensDownloadDirectory | Out-Null
+[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+$paperlensHeaders = @{ 'User-Agent' = 'PaperLens-Agent-Installer'; 'Accept' = 'application/vnd.github+json' }
+$paperlensRelease = Invoke-RestMethod -Uri 'https://api.github.com/repos/gmbcofficial2024/paperlens/releases/latest' -Headers $paperlensHeaders
+if ($paperlensRelease.draft -or $paperlensRelease.prerelease -or $paperlensRelease.tag_name -cnotmatch '^v\d+\.\d+\.\d+(?:\.\d+)?$') {
+    throw 'Expected a stable versioned PaperLens release.'
+}
+$paperlensHelpers = @('install-update-paperlens.ps1', 'Install-Update-PaperLens.cmd')
+foreach ($paperlensFile in @('SHA256SUMS') + $paperlensHelpers) {
+    $paperlensAssets = @($paperlensRelease.assets | Where-Object { $_.name -ceq $paperlensFile })
+    if ($paperlensAssets.Count -ne 1) { throw "Missing or duplicate release asset: $paperlensFile" }
+    $paperlensAssetUrl = [string]$paperlensAssets[0].browser_download_url
+    $paperlensExpectedPrefix = 'https://github.com/gmbcofficial2024/paperlens/releases/download/' + $paperlensRelease.tag_name + '/'
+    if (-not $paperlensAssetUrl.StartsWith($paperlensExpectedPrefix, [StringComparison]::Ordinal)) { throw 'Unexpected asset origin.' }
+    Invoke-WebRequest -UseBasicParsing -Uri $paperlensAssetUrl -OutFile (Join-Path $paperlensDownloadDirectory $paperlensFile)
+}
+$paperlensChecksumLines = Get-Content -LiteralPath (Join-Path $paperlensDownloadDirectory 'SHA256SUMS') -Encoding ASCII
+foreach ($paperlensFile in $paperlensHelpers) {
+    $paperlensPattern = '^([A-Fa-f0-9]{64})[ \t]+\*?' + [regex]::Escape($paperlensFile) + '$'
+    $paperlensExpectedHashes = @($paperlensChecksumLines | ForEach-Object {
+        $paperlensMatch = [regex]::Match($_, $paperlensPattern)
+        if ($paperlensMatch.Success) { $paperlensMatch.Groups[1].Value }
+    })
+    if ($paperlensExpectedHashes.Count -ne 1) { throw "Missing or duplicate helper checksum: $paperlensFile" }
+    $paperlensHasher = [Security.Cryptography.SHA256]::Create()
+    $paperlensStream = [IO.File]::OpenRead((Join-Path $paperlensDownloadDirectory $paperlensFile))
+    try { $paperlensHash = [BitConverter]::ToString($paperlensHasher.ComputeHash($paperlensStream)).Replace('-', '') }
+    finally { $paperlensStream.Dispose(); $paperlensHasher.Dispose() }
+    if ($paperlensHash -ine $paperlensExpectedHashes[0]) { throw "Checksum mismatch: $paperlensFile" }
+}
+$paperlensHelper = Join-Path $paperlensDownloadDirectory 'install-update-paperlens.ps1'
+$paperlensPowerShell = Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
+& $paperlensPowerShell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $paperlensHelper -InstallDirectory $paperlensInstallDirectory
+if ($LASTEXITCODE -ne 0) { throw 'PaperLens file installation failed.' }
+$paperlensManifest = Get-Content -LiteralPath (Join-Path $paperlensInstallDirectory 'manifest.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+if ('v' + $paperlensManifest.version -cne $paperlensRelease.tag_name) { throw 'Installed version differs from the selected release; inspect before continuing.' }
+Write-Host "Installed PaperLens $($paperlensManifest.version): $paperlensInstallDirectory"
+Write-Host 'Next: Chrome registration/reload, then save the user API key in Settings.'
+```
+
+도우미는 실행할 때 최신 Release를 다시 조회합니다. 다운로드 도중 새 버전이 게시되어 마지막 버전 비교가 실패하면 실제 설치 버전과 백업을 확인하고, 최신 자산을 다시 받아 상태를 확인합니다. 위 명령이 특정 버전의 ZIP을 고정해서 설치하는 방식은 아닙니다.
+
+Windows 파일 설치 명령은 Chrome 등록과 API 키 저장을 수행하지 않습니다. 기관 정책이 스크립트 실행이나 개발자 모드를 제한하면 해당 관리자에게 필요한 설정을 확인합니다. 시스템 정책을 바꾸거나 브라우저 프로필 파일을 직접 편집하는 설치 방식은 사용하지 않습니다.
+
+</details>
+
 ## 다운로드와 설치
 
 **[최신 Release 다운로드](https://github.com/gmbcofficial2024/paperlens/releases/latest)**
