@@ -1,7 +1,8 @@
 export const PROVIDER_IDS = ["gemini", "vertex", "openai", "anthropic", "custom"] as const;
 export type ProviderId = (typeof PROVIDER_IDS)[number];
-export const SUMMARY_PROVIDER_IDS = ["codex", "claude", "gemini", "vertex"] as const;
+export const SUMMARY_PROVIDER_IDS = ["codex", "claude", "gemini", "vertex", "openai", "anthropic"] as const;
 export type SummaryProviderId = (typeof SUMMARY_PROVIDER_IDS)[number];
+export type ApiSummaryProviderId = Extract<SummaryProviderId, ProviderId>;
 
 export interface ProviderSetting {
   apiKey?: string;
@@ -29,6 +30,10 @@ export interface SummarySettings {
   geminiApiKey?: string;
   vertexApiKey?: string;
   vertexModel?: string;
+  openaiApiKey?: string;
+  openaiModel?: string;
+  anthropicApiKey?: string;
+  anthropicModel?: string;
 }
 
 export interface SentenceAlignment {

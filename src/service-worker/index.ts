@@ -17,7 +17,7 @@ import { redactSecrets } from "../shared/secrets";
 import { parseSectionTranslationJson, parseTranslationJson } from "../shared/translation-json";
 import type { RuntimeRequest, RuntimeResponse } from "../shared/messages";
 import type { StreamRequest, StreamMessage } from "../shared/stream-protocol";
-import type { ExtensionSettings, TranslationResult, SummaryResult, TokenUsage, SentenceAlignment, ParagraphResult, ProviderSetting } from "../shared/types";
+import type { ApiSummaryProviderId, ExtensionSettings, TranslationResult, SummaryResult, TokenUsage, SentenceAlignment, ParagraphResult, ProviderSetting } from "../shared/types";
 import type { ProviderCallOptions, ProviderPayloadResult } from "../shared/provider-protocol";
 
 // ---------------------------------------------------------------------------
@@ -36,7 +36,9 @@ function sanitizeErrorBody(body: string, settings: ExtensionSettings): string {
     ...providerKeys,
     settings.summary.geminiApiKey,
     settings.summary.vertexApiKey,
-  ], 200);
+    settings.summary.openaiApiKey,
+    settings.summary.anthropicApiKey,
+  ].flatMap(key => [key, key?.trim()]), 200);
 }
 
 // ---------------------------------------------------------------------------
@@ -244,34 +246,26 @@ async function callNativeSummary(
   return { summary };
 }
 
-function buildGoogleSummarySetting(
-  provider: "gemini" | "vertex",
+function buildApiSummarySetting(
+  provider: ApiSummaryProviderId,
   settings: ExtensionSettings,
 ): ProviderSetting {
-  if (provider === "gemini") {
-    return {
-      apiKey: settings.summary.geminiApiKey || settings.providerSettings.gemini.apiKey,
-      model: settings.summary.geminiModel
-        || settings.providerSettings.gemini.model
-        || PROVIDERS.gemini.defaultModel,
-    };
-  }
   return {
-    apiKey: settings.summary.vertexApiKey || settings.providerSettings.vertex.apiKey,
-    model: settings.summary.vertexModel
-      || settings.providerSettings.vertex.model
-      || PROVIDERS.vertex.defaultModel,
+    apiKey: settings.summary[`${provider}ApiKey`]?.trim() || settings.providerSettings[provider].apiKey,
+    model: settings.summary[`${provider}Model`]?.trim()
+      || settings.providerSettings[provider].model
+      || PROVIDERS[provider].defaultModel,
   };
 }
 
-async function callGoogleSummary(
-  provider: "gemini" | "vertex",
+async function callApiSummary(
+  provider: ApiSummaryProviderId,
   prompt: string,
   settings: ExtensionSettings,
 ): Promise<SummaryResult> {
   const result = await fetchProviderPayload({
     provider,
-    setting: buildGoogleSummarySetting(provider, settings),
+    setting: buildApiSummarySetting(provider, settings),
     systemPrompt: SUMMARY_SYSTEM_PROMPT,
     userPrompt: prompt,
     outputMode: "text",
@@ -299,8 +293,8 @@ async function dispatchSummary(title: string | undefined, articleText: string, s
   return dispatchSummaryProviderOnce(settings.summary.provider, prompt, {
     native: (provider, fullPrompt) =>
       callNativeSummary(provider, fullPrompt, settings),
-    google: (provider, fullPrompt) =>
-      callGoogleSummary(provider, fullPrompt, settings),
+    api: (provider, fullPrompt) =>
+      callApiSummary(provider, fullPrompt, settings),
   });
 }
 

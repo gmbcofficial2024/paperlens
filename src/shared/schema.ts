@@ -58,6 +58,10 @@ const summarySettingsSchema = z.object({
   geminiApiKey: z.string().optional(),
   vertexApiKey: z.string().optional(),
   vertexModel: z.string().optional(),
+  openaiApiKey: z.string().optional(),
+  openaiModel: z.string().optional(),
+  anthropicApiKey: z.string().optional(),
+  anthropicModel: z.string().optional(),
 });
 
 export const settingsSchema = z.object({
@@ -128,6 +132,8 @@ function mergeSummarySettings(defaults: SummarySettings, rawSummary: unknown): S
     ...raw,
     ...(raw.codexModel === "gpt-5.5" ? { codexModel: DEFAULT_CODEX_SUMMARY_MODEL } : {}),
     vertexModel,
+    openaiModel: normalizeFixedModel("openai", raw.openaiModel, OPENAI_MODEL_MIGRATIONS),
+    anthropicModel: normalizeFixedModel("anthropic", raw.anthropicModel, ANTHROPIC_MODEL_MIGRATIONS),
     prompt: typeof raw.prompt === "string" && raw.prompt.trim()
       ? raw.prompt
       : defaults.prompt,

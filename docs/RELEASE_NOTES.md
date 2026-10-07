@@ -7,7 +7,7 @@
 - 직접 설치하거나 macOS/Linux를 사용하는 경우 `paperlens-<version>.zip`을 사용하세요. `Source code` 압축 파일은 개발용 소스입니다.
 - 자신의 API 키를 입력해야 합니다. Gemini를 선택한 번역·요약·연결 테스트 모델만 `gemini-flash-latest`로 고정되며, 요청에는 선택한 제공자의 API 요금이 발생할 수 있습니다.
 
-`1.1.7`는 Nature magazine 기사의 header가 번역에 섞이던 문제를 수정합니다. 제목·날짜·저자·저자 팝업과 짧은 소개문은 번역·요약 본문에서 제외하며, 제목은 문서 식별에 유지합니다. 다른 과학적 기사의 도입문과 본문·footer 주석은 계속 처리합니다. 기존 제공자 설정과 API 키, 최신 모델 목록은 유지합니다. Gemini API 배포 모델은 계속 Flash Latest로 고정됩니다. [모델·전환 안내](https://github.com/gmbcofficial2024/paperlens/blob/main/docs/MODELS.md)
+`1.1.8`는 **Paper & Article Summary**에 OpenAI·Anthropic API를 추가합니다. 최신 모델을 선택하고 요약 전용 키를 입력할 수 있으며, 키·모델을 비우면 같은 제공자의 번역 설정을 재사용합니다. Codex·Claude 요약에는 최신 모델 입력 후보를 제공합니다. 기존 제공자·키와 직접 지정한 native 모델은 유지하고, Gemini API 배포 모델은 계속 Flash Latest로 고정합니다. [모델·전환 안내](https://github.com/gmbcofficial2024/paperlens/blob/main/docs/MODELS.md)
 
 [설치·업데이트 안내](https://github.com/gmbcofficial2024/paperlens/blob/main/docs/INSTALL.md) · [사용법](https://github.com/gmbcofficial2024/paperlens#readme) · [변경 사항](https://github.com/gmbcofficial2024/paperlens/blob/main/CHANGELOG.md)
 

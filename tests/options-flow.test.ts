@@ -239,6 +239,36 @@ test("legacy native Codex default and OpenAI Luna load as their approved replace
   assert.equal(element<HTMLInputElement>(harness, "#api-key").value, "saved-openai");
 });
 
+test("native summary suggestions show current models while arbitrary saved IDs remain editable and survive Save", async () => {
+  const baseline = initialSettings();
+  baseline.summary.provider = "codex";
+  baseline.summary.codexModel = "private-codex-deployment";
+  baseline.summary.claudeModel = "private-claude-deployment";
+  const harness = await createHarness({}, baseline);
+  for (const [provider, expected] of [
+    ["codex", ["gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna"]],
+    ["claude", ["opus", "sonnet", "haiku", "fable", "claude-fable-5-1", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-4-5-20251001"]],
+  ] as const) {
+    const input = element<HTMLInputElement>(harness, `#summary-${provider}-model`);
+    assert.equal(input.tagName, "INPUT");
+    assert.equal(input.value, `private-${provider}-deployment`);
+    assert.equal(input.disabled, false);
+    const listId = input.getAttribute("list");
+    assert.ok(listId, "Native model input should offer suggestions without restricting values");
+    const datalist = element<HTMLDataListElement>(harness, `#${listId}`);
+    assert.deepEqual([...datalist.querySelectorAll("option")].map((option) => option.value), expected);
+    input.value = `  edited-private-${provider}-deployment  `;
+  }
+  click(harness, "#save-btn");
+  await waitFor(() => harness.runtime.updateCalls.length === 1, "custom native model Save");
+  assert.equal(harness.runtime.updateCalls[0].settings.summary.codexModel, "edited-private-codex-deployment");
+  assert.equal(harness.runtime.updateCalls[0].settings.summary.claudeModel, "edited-private-claude-deployment");
+  harness.runtime.updateCalls[0].respond({ ok: true, settings: harness.runtime.updateCalls[0].settings });
+  await waitFor(() => !element<HTMLButtonElement>(harness, "#save-btn").disabled, "native controls after Save");
+  assert.equal(element<HTMLInputElement>(harness, "#summary-codex-model").value, "  edited-private-codex-deployment  ");
+  assert.equal(element<HTMLInputElement>(harness, "#summary-claude-model").value, "  edited-private-claude-deployment  ");
+});
+
 test("provider switching preserves raw drafts and never updates before explicit Save", async () => {
   const harness = await createHarness();
   const apiKey = element<HTMLInputElement>(harness, "#api-key");
@@ -379,6 +409,8 @@ for (const failureKind of ["response", "exception"] as const) {
     settings.providerSettings.custom.apiKey = "saved-custom";
     settings.summary.geminiApiKey = "saved-summary-gemini";
     settings.summary.vertexApiKey = "saved-summary-vertex";
+    settings.summary.openaiApiKey = "saved-summary-openai";
+    settings.summary.anthropicApiKey = "saved-summary-anthropic";
     settings.summary.codexModel = "preserved-native-model";
     const harness = await createHarness({}, settings);
     const drafts: Record<ProviderId, string> = {
@@ -394,22 +426,34 @@ for (const failureKind of ["response", "exception"] as const) {
     }
     const summaryGemini = element<HTMLInputElement>(harness, "#summary-gemini-api-key");
     const summaryVertex = element<HTMLInputElement>(harness, "#summary-vertex-api-key");
+    const summaryOpenai = element<HTMLInputElement>(harness, "#summary-openai-api-key");
+    const summaryAnthropic = element<HTMLInputElement>(harness, "#summary-anthropic-api-key");
     summaryGemini.value = "  submitted-summary-gemini  ";
     summaryVertex.value = "  submitted-summary-vertex  ";
+    summaryOpenai.value = "  submitted-summary-openai  ";
+    summaryAnthropic.value = "  submitted-summary-anthropic  ";
     click(harness, "#save-btn");
     await waitFor(() => harness.runtime.updateCalls.length === 1, "pending private settings update");
     summaryGemini.value = "pending-summary-gemini";
     summaryVertex.value = "pending-summary-vertex";
+    summaryOpenai.value = "pending-summary-openai";
+    summaryAnthropic.value = "pending-summary-anthropic";
 
     const secrets = [
       ...Object.values(settings.providerSettings).map((provider) => provider.apiKey!),
       settings.summary.geminiApiKey,
       settings.summary.vertexApiKey,
+      settings.summary.openaiApiKey,
+      settings.summary.anthropicApiKey,
       ...Object.values(drafts).flatMap((draft) => [draft, draft.trim()]),
       "submitted-summary-gemini",
       "submitted-summary-vertex",
+      "submitted-summary-openai",
+      "submitted-summary-anthropic",
       summaryGemini.value,
       summaryVertex.value,
+      summaryOpenai.value,
+      summaryAnthropic.value,
     ];
     const encodedCustom = encodeURIComponent(drafts.custom.trim());
     const formEncodedCustom = new URLSearchParams({ key: drafts.custom }).toString().slice(4);

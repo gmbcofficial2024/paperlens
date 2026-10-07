@@ -8,6 +8,8 @@ When you start translation or API summary, PaperLens extracts article text acces
 
 Translation can continue sending newly loaded article passages while its reading session is visible and active. Hide translation to pause that continuing work. If you enable summary before translation, starting translation also requests a summary. Otherwise summary is explicit. A changed source shows an update control rather than automatically sending a new full-summary request.
 
+API summaries support Gemini, Vertex, OpenAI and Anthropic directly. A separate summary key or model overrides that provider's translation setting; a blank override reuses only the same provider's saved setting. Summary keys are kept in trusted extension settings and excluded from the settings sent to page content scripts. Provider error text is sanitized to remove saved keys.
+
 The optional **Test saved API connection** button sends a short test sentence and the saved translation credentials to the selected translation provider. Gemini requests use Flash Latest in the shared Release. It can incur a small API charge and does not send the active article as part of that check.
 
 Source-scope notices describe captured text and evidence of partial access. PaperLens does not bypass paywalls or fetch unloaded sections, external PDF contents or supplemental files. Article content you can access after signing in can be processed like other loaded text. Provider handling, retention and billing follow your account and the provider's terms. Removing local data does not remove past provider requests. Avoid sending confidential content unless your chosen provider's handling is appropriate for it.

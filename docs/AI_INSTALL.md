@@ -96,7 +96,7 @@ If browser controls cannot complete a step, give the user the exact folder and t
 Open PaperLens **Settings** or direct the user there. Guide the user to enter their own key through the Settings UI; do not ask them to paste a key into the chat, logs, a file or the repository.
 
 - **Translation Provider**: Google Gemini and the user's key by default. The shared Release fixes only Gemini requests to `gemini-flash-latest`. If the user requests another provider, keep that provider and its supported model; do not replace it with Gemini.
-- **Summary Provider**: Google Gemini API. A blank separate summary key reuses the saved translation Gemini key.
+- **Summary Provider**: Google Gemini API by default. Vertex, OpenAI and Anthropic API summaries are also supported when requested. A blank summary key or model reuses that same provider's saved translation setting; an unset translation model uses the provider default. Never use a different provider's key. API summaries do not require a native CLI.
 - Choose **Save Settings**, then refresh the article tab.
 
 On update, old Gemini Pro/Lite selections are normalized to Gemini Flash Latest. Other provider choices and keys are retained; recognized older model presets migrate to their current counterparts. The former native Codex default `gpt-5.5` migrates to `gpt-6.1-sol`; other explicit native model choices and custom-server models/endpoints are retained. See [current models and migrations](MODELS.md). If version 1.1.2 was used to save settings and switched the provider to Gemini, the intended provider must be selected again. Never copy credentials between providers. Google may update the version behind the fixed `latest` alias. Source development builds also retain Gemini model selection.

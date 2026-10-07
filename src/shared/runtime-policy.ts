@@ -37,7 +37,7 @@ export function readingSettings(settings: ExtensionSettings): ExtensionSettings 
   for (const key of Object.keys(providerSettings) as Array<keyof typeof providerSettings>) {
     providerSettings[key] = {model: providerSettings[key].model};
   }
-  const {geminiApiKey, vertexApiKey, ...summary} = settings.summary;
+  const {geminiApiKey, vertexApiKey, openaiApiKey, anthropicApiKey, ...summary} = settings.summary;
   return {...settings, providerSettings, summary};
 }
 

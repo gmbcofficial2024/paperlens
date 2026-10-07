@@ -306,24 +306,28 @@
           <select id="summary-provider">
             <option value="gemini">Google Gemini API</option>
             <option value="vertex">Google Vertex AI API</option>
+            <option value="openai">OpenAI API</option>
+            <option value="anthropic">Anthropic API</option>
             <option value="codex">Codex CLI (advanced local setup)</option>
             <option value="claude">Claude CLI (advanced local setup)</option>
           </select>
-          <div class="help-text" id="summary-provider-help">Gemini and Vertex work directly with your API keys. Optional Codex and Claude require a separately installed Native Messaging host and a logged-in CLI.</div>
+          <div class="help-text" id="summary-provider-help">Gemini, Vertex, OpenAI and Anthropic work directly with your API keys. Optional Codex and Claude require a separately installed Native Messaging host and a logged-in CLI.</div>
         </div>
       </div>
       <div id="summary-codex-fields" class="grid">
         <div class="field">
           <label for="summary-codex-model">Codex Model</label>
-          <input type="text" id="summary-codex-model" placeholder="gpt-6.1-sol">
-          <div class="help-text">Default: gpt-6.1-sol. Passed as <code>codex exec -m</code>.</div>
+          <input type="text" id="summary-codex-model" list="summary-codex-models" placeholder="gpt-6.1-sol">
+          <datalist id="summary-codex-models"></datalist>
+          <div class="help-text">Default: gpt-6.1-sol. Choose a suggestion or enter a custom model ID. Passed as <code>codex exec -m</code>.</div>
         </div>
       </div>
       <div id="summary-claude-fields" class="grid hidden">
         <div class="field">
           <label for="summary-claude-model">Claude Model</label>
-          <input type="text" id="summary-claude-model" placeholder="opus">
-          <div class="help-text">Default: opus. Claude CLI treats aliases such as opus/sonnet as latest model aliases.</div>
+          <input type="text" id="summary-claude-model" list="summary-claude-models" placeholder="opus">
+          <datalist id="summary-claude-models"></datalist>
+          <div class="help-text">Default: opus. Use an updated Claude CLI. Rolling aliases follow your CLI and provider; enter a full model ID to pin a version. Custom IDs remain supported.</div>
         </div>
       </div>
       <div id="summary-gemini-fields" class="grid hidden">
@@ -335,6 +339,7 @@
         <div class="field">
           <label for="summary-gemini-model">Gemini Summary Model</label>
           <select id="summary-gemini-model"></select>
+          <div class="help-text" id="summary-gemini-model-fallback-help">Reuse the saved translation Gemini model or select a separate summary model.</div>
           <div class="help-text hidden" id="summary-distribution-model-note">Fixed in shared release: Gemini Flash Latest (gemini-flash-latest).</div>
         </div>
       </div>
@@ -347,7 +352,31 @@
         <div class="field">
           <label for="summary-vertex-model">Vertex Summary Model</label>
           <select id="summary-vertex-model"></select>
-          <div class="help-text">Use the Vertex Model Garden Gemini model ID.</div>
+          <div class="help-text">Reuse the saved translation Vertex model or select a separate summary model.</div>
+        </div>
+      </div>
+      <div id="summary-openai-fields" class="grid hidden">
+        <div class="field">
+          <label for="summary-openai-api-key">OpenAI Summary API Key</label>
+          <input type="password" id="summary-openai-api-key" placeholder="Leave blank to reuse the translation OpenAI key">
+          <div class="help-text" id="summary-openai-key-fallback-help">A blank key reuses the saved translation OpenAI key.</div>
+        </div>
+        <div class="field">
+          <label for="summary-openai-model">OpenAI Summary Model</label>
+          <select id="summary-openai-model"></select>
+          <div class="help-text">Reuse the saved translation OpenAI model or select a separate summary model.</div>
+        </div>
+      </div>
+      <div id="summary-anthropic-fields" class="grid hidden">
+        <div class="field">
+          <label for="summary-anthropic-api-key">Anthropic Summary API Key</label>
+          <input type="password" id="summary-anthropic-api-key" placeholder="Leave blank to reuse the translation Anthropic key">
+          <div class="help-text" id="summary-anthropic-key-fallback-help">A blank key reuses the saved translation Anthropic key.</div>
+        </div>
+        <div class="field">
+          <label for="summary-anthropic-model">Anthropic Summary Model</label>
+          <select id="summary-anthropic-model"></select>
+          <div class="help-text">Reuse the saved translation Anthropic model or select a separate summary model.</div>
         </div>
       </div>
       <div class="field">

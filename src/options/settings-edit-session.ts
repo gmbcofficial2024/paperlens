@@ -106,14 +106,22 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
   private readonly summaryProviderSelect: HTMLSelectElement;
   private readonly summaryCodexFields: HTMLElement;
   private readonly summaryCodexModelInput: HTMLInputElement;
+  private readonly summaryCodexModels: HTMLDataListElement;
   private readonly summaryClaudeFields: HTMLElement;
   private readonly summaryClaudeModelInput: HTMLInputElement;
+  private readonly summaryClaudeModels: HTMLDataListElement;
   private readonly summaryGeminiFields: HTMLElement;
   private readonly summaryGeminiApiKeyInput: HTMLInputElement;
   private readonly summaryGeminiModelSelect: HTMLSelectElement;
   private readonly summaryVertexFields: HTMLElement;
   private readonly summaryVertexApiKeyInput: HTMLInputElement;
   private readonly summaryVertexModelSelect: HTMLSelectElement;
+  private readonly summaryOpenaiFields: HTMLElement;
+  private readonly summaryOpenaiApiKeyInput: HTMLInputElement;
+  private readonly summaryOpenaiModelSelect: HTMLSelectElement;
+  private readonly summaryAnthropicFields: HTMLElement;
+  private readonly summaryAnthropicApiKeyInput: HTMLInputElement;
+  private readonly summaryAnthropicModelSelect: HTMLSelectElement;
   private readonly summaryPromptInput: HTMLTextAreaElement;
   private readonly clearCacheButton: HTMLButtonElement;
   private readonly saveButton: HTMLButtonElement;
@@ -147,11 +155,13 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
     this.summaryProviderSelect = requireElement<HTMLSelectElement>(document, "summary-provider");
     this.summaryCodexFields = requireElement(document, "summary-codex-fields");
     this.summaryCodexModelInput = requireElement<HTMLInputElement>(document, "summary-codex-model");
+    this.summaryCodexModels = requireElement<HTMLDataListElement>(document, "summary-codex-models");
     this.summaryClaudeFields = requireElement(document, "summary-claude-fields");
     this.summaryClaudeModelInput = requireElement<HTMLInputElement>(
       document,
       "summary-claude-model",
     );
+    this.summaryClaudeModels = requireElement<HTMLDataListElement>(document, "summary-claude-models");
     this.summaryGeminiFields = requireElement(document, "summary-gemini-fields");
     this.summaryGeminiApiKeyInput = requireElement<HTMLInputElement>(
       document,
@@ -170,6 +180,12 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
       document,
       "summary-vertex-model",
     );
+    this.summaryOpenaiFields = requireElement(document, "summary-openai-fields");
+    this.summaryOpenaiApiKeyInput = requireElement<HTMLInputElement>(document, "summary-openai-api-key");
+    this.summaryOpenaiModelSelect = requireElement<HTMLSelectElement>(document, "summary-openai-model");
+    this.summaryAnthropicFields = requireElement(document, "summary-anthropic-fields");
+    this.summaryAnthropicApiKeyInput = requireElement<HTMLInputElement>(document, "summary-anthropic-api-key");
+    this.summaryAnthropicModelSelect = requireElement<HTMLSelectElement>(document, "summary-anthropic-model");
     this.summaryPromptInput = requireElement<HTMLTextAreaElement>(document, "summary-prompt");
     this.clearCacheButton = requireElement<HTMLButtonElement>(document, "clear-cache-btn");
     this.saveButton = requireElement<HTMLButtonElement>(document, "save-btn");
@@ -192,8 +208,9 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
 
   private configureDistributionControls(): void {
     this.dependencies.document.getElementById("summary-distribution-model-note")?.classList.remove("hidden");
+    this.dependencies.document.getElementById("summary-gemini-model-fallback-help")?.classList.add("hidden");
     const summaryHelp = this.dependencies.document.getElementById("summary-provider-help");
-    if (summaryHelp) summaryHelp.textContent = "Gemini and Vertex work directly with your API keys. Only the Gemini model is fixed to Flash Latest in the shared release. Optional Codex and Claude require a separately installed Native Messaging host and a logged-in CLI.";
+    if (summaryHelp) summaryHelp.textContent = "Gemini, Vertex, OpenAI and Anthropic work directly with your API keys. Only the Gemini model is fixed to Flash Latest in the shared release. Optional Codex and Claude require a separately installed Native Messaging host and a logged-in CLI.";
     const quickStart = this.dependencies.document.getElementById("api-quick-start-help");
     if (quickStart) quickStart.textContent = "Choose a provider, enter your own API key, then click Save Settings. Only the Gemini model is fixed in the shared release. A blank Gemini summary key reuses the saved Gemini translation key. No local CLI is needed for API providers.";
     this.summaryGeminiModelSelect.disabled = true;
@@ -230,6 +247,21 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
     }
     this.summaryGeminiModelSelect.disabled = IS_DISTRIBUTION;
     this.summaryVertexModelSelect.disabled = false;
+    this.summaryOpenaiModelSelect.disabled = false;
+    this.summaryAnthropicModelSelect.disabled = false;
+  }
+
+  private populateModelChoices(
+    container: HTMLSelectElement | HTMLDataListElement,
+    models: Array<{ id: string; label: string }>,
+  ): void {
+    container.innerHTML = "";
+    for (const model of models) {
+      const option = this.dependencies.document.createElement("option");
+      option.value = model.id;
+      option.textContent = model.label;
+      container.appendChild(option);
+    }
   }
 
   private populateProviders(): void {
@@ -309,7 +341,7 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
     this.summaryGeminiModelSelect.innerHTML = "";
     const geminiModels = IS_DISTRIBUTION
       ? [{ id: DISTRIBUTION_API_MODEL, label: `Gemini Flash Latest (${DISTRIBUTION_API_MODEL})` }]
-      : PROVIDERS.gemini.models;
+      : [{ id: "", label: "Reuse saved translation Gemini model" }, ...PROVIDERS.gemini.models];
     for (const model of geminiModels) {
       const option = this.dependencies.document.createElement("option");
       option.value = model.id;
@@ -317,15 +349,28 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
       this.summaryGeminiModelSelect.appendChild(option);
     }
 
-    this.summaryVertexModelSelect.innerHTML = "";
-    for (const model of PROVIDERS.vertex.models) {
-      const option = this.dependencies.document.createElement("option");
-      option.value = model.id;
-      option.textContent = model.label;
-      this.summaryVertexModelSelect.appendChild(option);
-    }
+    this.populateModelChoices(this.summaryVertexModelSelect, [
+      { id: "", label: "Reuse saved translation Vertex model" },
+      ...PROVIDERS.vertex.models,
+    ]);
     this.summaryGeminiModelSelect.disabled = IS_DISTRIBUTION;
     this.summaryVertexModelSelect.disabled = false;
+    this.populateModelChoices(this.summaryOpenaiModelSelect, [
+      { id: "", label: "Reuse saved translation OpenAI model" },
+      ...PROVIDERS.openai.models,
+    ]);
+    this.populateModelChoices(this.summaryAnthropicModelSelect, [
+      { id: "", label: "Reuse saved translation Anthropic model" },
+      ...PROVIDERS.anthropic.models,
+    ]);
+    this.populateModelChoices(this.summaryCodexModels, PROVIDERS.openai.models);
+    this.populateModelChoices(this.summaryClaudeModels, [
+      { id: "opus", label: "Latest Opus alias" },
+      { id: "sonnet", label: "Latest Sonnet alias" },
+      { id: "haiku", label: "Latest Haiku alias" },
+      { id: "fable", label: "Latest Fable alias" },
+      ...PROVIDERS.anthropic.models,
+    ]);
   }
 
   private showSummaryProviderFields(providerId: SummaryProviderId): void {
@@ -333,6 +378,8 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
     this.summaryClaudeFields.classList.toggle("hidden", providerId !== "claude");
     this.summaryGeminiFields.classList.toggle("hidden", providerId !== "gemini");
     this.summaryVertexFields.classList.toggle("hidden", providerId !== "vertex");
+    this.summaryOpenaiFields.classList.toggle("hidden", providerId !== "openai");
+    this.summaryAnthropicFields.classList.toggle("hidden", providerId !== "anthropic");
   }
 
   private changeProvider(): void {
@@ -379,11 +426,13 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
       this.summaryCodexModelInput.value = settings.summary.codexModel ?? "";
       this.summaryClaudeModelInput.value = settings.summary.claudeModel ?? "";
       this.summaryGeminiApiKeyInput.value = settings.summary.geminiApiKey ?? "";
-      this.summaryGeminiModelSelect.value = settings.summary.geminiModel
-        || PROVIDERS.gemini.defaultModel;
+      this.summaryGeminiModelSelect.value = settings.summary.geminiModel ?? "";
       this.summaryVertexApiKeyInput.value = settings.summary.vertexApiKey ?? "";
-      this.summaryVertexModelSelect.value = settings.summary.vertexModel
-        || PROVIDERS.vertex.defaultModel;
+      this.summaryVertexModelSelect.value = settings.summary.vertexModel ?? "";
+      this.summaryOpenaiApiKeyInput.value = settings.summary.openaiApiKey ?? "";
+      this.summaryOpenaiModelSelect.value = settings.summary.openaiModel ?? "";
+      this.summaryAnthropicApiKeyInput.value = settings.summary.anthropicApiKey ?? "";
+      this.summaryAnthropicModelSelect.value = settings.summary.anthropicModel ?? "";
       this.summaryPromptInput.value = settings.summary.prompt;
     } catch {
       this.showToast("Failed to load settings");
@@ -434,6 +483,10 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
         geminiModel: this.summaryGeminiModelSelect.value || undefined,
         vertexApiKey: this.summaryVertexApiKeyInput.value.trim() || undefined,
         vertexModel: this.summaryVertexModelSelect.value || undefined,
+        openaiApiKey: toOptionalString(this.summaryOpenaiApiKeyInput.value),
+        openaiModel: toOptionalString(this.summaryOpenaiModelSelect.value),
+        anthropicApiKey: toOptionalString(this.summaryAnthropicApiKeyInput.value),
+        anthropicModel: toOptionalString(this.summaryAnthropicModelSelect.value),
       },
     };
     return IS_DISTRIBUTION ? mergeSettings(snapshot) : snapshot;
@@ -516,11 +569,17 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
       ...Object.values(snapshot.providerSettings).map((provider) => provider.apiKey),
       this.savedSettingsBaseline?.summary.geminiApiKey,
       this.savedSettingsBaseline?.summary.vertexApiKey,
+      this.savedSettingsBaseline?.summary.openaiApiKey,
+      this.savedSettingsBaseline?.summary.anthropicApiKey,
       snapshot.summary.geminiApiKey,
       snapshot.summary.vertexApiKey,
+      snapshot.summary.openaiApiKey,
+      snapshot.summary.anthropicApiKey,
       this.apiKeyInput.value,
       this.summaryGeminiApiKeyInput.value,
       this.summaryVertexApiKeyInput.value,
+      this.summaryOpenaiApiKeyInput.value,
+      this.summaryAnthropicApiKeyInput.value,
     ].flatMap((secret) => secret ? [secret, secret.trim()] : [])
       .filter(Boolean)
       .sort((left, right) => right.length - left.length);

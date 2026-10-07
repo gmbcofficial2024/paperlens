@@ -241,7 +241,7 @@ test("shared Options retains every provider and fixes only Gemini model choices"
     assert.deepEqual([...summaryGemini.options].map((option) => option.value), ["gemini-flash-latest"]);
     assert.equal(summaryGemini.value, "gemini-flash-latest");
     assert.equal(summaryGemini.disabled, true);
-    assert.deepEqual([...select(page.document, "summary-provider").options].map((option) => option.value), ["gemini", "vertex", "codex", "claude"]);
+    assert.deepEqual([...select(page.document, "summary-provider").options].map((option) => option.value), ["gemini", "vertex", "openai", "anthropic", "codex", "claude"]);
     assert.equal(select(page.document, "summary-provider").value, "vertex");
     assert.equal(select(page.document, "summary-vertex-model").disabled, false);
     assert.equal(page.document.getElementById("summary-vertex-fields")!.classList.contains("hidden"), false);
@@ -251,6 +251,141 @@ test("shared Options retains every provider and fixes only Gemini model choices"
     assert.equal(page.document.getElementById("summary-distribution-model-note")!.classList.contains("hidden"), false);
   }
 });
+
+for (const distribution of [false, true]) {
+  test(`${distribution ? "release" : "development"} unset Vertex and editable Gemini summary models retain translation reuse on Save and reopening`, async () => {
+    const baseline = staleSettings("vertex", "vertex");
+    baseline.providerSettings.custom.customUrl = undefined;
+    baseline.summary.geminiModel = undefined;
+    baseline.summary.vertexModel = undefined;
+    const page = await harness(baseline, distribution);
+    assert.equal(select(page.document, "summary-vertex-model").value, "");
+    assert.match(select(page.document, "summary-vertex-model").options[0].textContent ?? "", /Reuse saved translation Vertex model/);
+    assert.equal(select(page.document, "summary-gemini-model").value, distribution ? "gemini-flash-latest" : "");
+    if (!distribution) {
+      assert.match(select(page.document, "summary-gemini-model").options[0].textContent ?? "", /Reuse saved translation Gemini model/);
+    }
+    (page.document.getElementById("save-btn") as HTMLButtonElement).click();
+    await flush();
+    const sent = page.updates[0].settings;
+    assert.equal(sent.summary.provider, "vertex");
+    assert.equal(sent.summary.vertexModel, undefined);
+    assert.equal(sent.summary.geminiModel, distribution ? "gemini-flash-latest" : undefined);
+    assert.equal(sent.providerSettings.vertex.model, "gemini-3.1-pro-preview");
+    assert.equal(sent.summary.vertexApiKey, "saved-summary-vertex-key");
+    const persisted = mergeSettings(sent);
+    page.updates[0].respond({ ok: true, settings: persisted });
+    await flush();
+    const reopened = await harness(persisted, distribution);
+    assert.equal(select(reopened.document, "summary-vertex-model").value, "");
+    assert.equal(select(reopened.document, "summary-gemini-model").value, distribution ? "gemini-flash-latest" : "");
+  });
+
+  test(`${distribution ? "release" : "development"} API summary overrides keep separate provider drafts through failure, Save, and reopening`, async () => {
+    const baseline = staleSettings("anthropic", "openai");
+    baseline.providerSettings.custom.customUrl = undefined;
+    baseline.summary.openaiApiKey = "saved-summary-openai";
+    baseline.summary.openaiModel = "gpt-6-astra";
+    baseline.summary.anthropicApiKey = "saved-summary-anthropic";
+    baseline.summary.anthropicModel = "claude-fable-5-1";
+    const page = await harness(baseline, distribution);
+    const summaryProvider = select(page.document, "summary-provider");
+    const openaiKey = page.document.getElementById("summary-openai-api-key") as HTMLInputElement;
+    const anthropicKey = page.document.getElementById("summary-anthropic-api-key") as HTMLInputElement;
+    const openaiModel = select(page.document, "summary-openai-model");
+    const anthropicModel = select(page.document, "summary-anthropic-model");
+    assert.equal(summaryProvider.value, "openai");
+    assert.equal(page.document.getElementById("summary-openai-fields")!.classList.contains("hidden"), false);
+    assert.equal(openaiKey.value, "saved-summary-openai");
+    assert.equal(anthropicKey.value, "saved-summary-anthropic");
+    assert.equal(openaiModel.value, "gpt-6-astra");
+    assert.equal(anthropicModel.value, "claude-fable-5-1");
+    assert.deepEqual([...openaiModel.options].map((option) => option.value), ["", "gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna"]);
+    assert.deepEqual([...anthropicModel.options].map((option) => option.value), ["", "claude-fable-5-1", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-4-5-20251001"]);
+    for (const provider of ["openai", "anthropic"]) {
+      assert.match(page.document.getElementById(`summary-${provider}-key-fallback-help`)!.textContent ?? "", new RegExp(`saved translation ${provider === "openai" ? "OpenAI" : "Anthropic"} key`));
+    }
+    openaiKey.value = "  edited-summary-openai  ";
+    openaiModel.value = "gpt-6-luna";
+    anthropicKey.value = "  edited-summary-anthropic  ";
+    anthropicModel.value = "claude-opus-5-5";
+    summaryProvider.value = "anthropic";
+    summaryProvider.dispatchEvent(new page.window.Event("change"));
+    assert.equal(page.document.getElementById("summary-openai-fields")!.classList.contains("hidden"), true);
+    assert.equal(page.document.getElementById("summary-anthropic-fields")!.classList.contains("hidden"), false);
+    summaryProvider.value = "openai";
+    summaryProvider.dispatchEvent(new page.window.Event("change"));
+    assert.equal(openaiKey.value, "  edited-summary-openai  ");
+    (page.document.getElementById("save-btn") as HTMLButtonElement).click();
+    await flush();
+    assert.equal(page.updates.length, 1);
+    const sent = page.updates[0].settings;
+    assert.equal(sent.summary.provider, "openai");
+    assert.equal(sent.summary.openaiApiKey, "edited-summary-openai");
+    assert.equal(sent.summary.openaiModel, "gpt-6-luna");
+    assert.equal(sent.summary.anthropicApiKey, "edited-summary-anthropic");
+    assert.equal(sent.summary.anthropicModel, "claude-opus-5-5");
+    assert.equal(sent.summary.codexModel, "saved-native-codex-model");
+    assert.equal(sent.summary.claudeModel, "saved-native-claude-model");
+    assert.equal(sent.providerSettings.openai.apiKey, "saved-openai-key");
+    assert.equal(sent.providerSettings.anthropic.apiKey, "saved-anthropic-key");
+    assert.equal(sent.summary.geminiModel, distribution ? "gemini-flash-latest" : "gemini-pro-latest");
+    page.updates[0].respond({ ok: false, error: "controlled failure" });
+    await flush();
+    assert.equal(openaiKey.value, "  edited-summary-openai  ");
+    assert.equal(anthropicKey.value, "  edited-summary-anthropic  ");
+    assert.equal(openaiModel.value, "gpt-6-luna");
+    assert.equal(anthropicModel.value, "claude-opus-5-5");
+    assert.equal(openaiModel.disabled, false);
+    assert.equal(anthropicModel.disabled, false);
+    (page.document.getElementById("save-btn") as HTMLButtonElement).click();
+    await flush();
+    assert.deepEqual(page.updates[1].settings.summary, sent.summary);
+    const persisted = mergeSettings(page.updates[1].settings);
+    page.updates[1].respond({ ok: true, settings: persisted });
+    await flush();
+    const reopened = await harness(persisted, distribution);
+    assert.equal(select(reopened.document, "summary-provider").value, "openai");
+    assert.equal(select(reopened.document, "summary-openai-model").value, "gpt-6-luna");
+    assert.equal(select(reopened.document, "summary-anthropic-model").value, "claude-opus-5-5");
+    assert.equal((reopened.document.getElementById("summary-openai-api-key") as HTMLInputElement).value, "edited-summary-openai");
+    assert.equal((reopened.document.getElementById("summary-anthropic-api-key") as HTMLInputElement).value, "edited-summary-anthropic");
+    assert.deepEqual(page.permissionCalls, []);
+  });
+
+  test(`${distribution ? "release" : "development"} blank API summary key and explicit model reuse remain undefined without copying translation values`, async () => {
+    const baseline = staleSettings("gemini", "anthropic");
+    baseline.providerSettings.custom.customUrl = undefined;
+    baseline.summary.openaiApiKey = "clear-summary-openai";
+    baseline.summary.openaiModel = "gpt-6-astra";
+    baseline.summary.anthropicApiKey = "clear-summary-anthropic";
+    baseline.summary.anthropicModel = "claude-fable-5-1";
+    const page = await harness(baseline, distribution);
+    for (const provider of ["openai", "anthropic"]) {
+      const model = select(page.document, `summary-${provider}-model`);
+      assert.match(model.options[0].textContent ?? "", /Reuse saved translation/);
+      model.value = "";
+      (page.document.getElementById(`summary-${provider}-api-key`) as HTMLInputElement).value = "   ";
+    }
+    (page.document.getElementById("save-btn") as HTMLButtonElement).click();
+    await flush();
+    const sent = page.updates[0].settings;
+    assert.equal(sent.summary.provider, "anthropic");
+    assert.equal(sent.summary.openaiApiKey, undefined);
+    assert.equal(sent.summary.openaiModel, undefined);
+    assert.equal(sent.summary.anthropicApiKey, undefined);
+    assert.equal(sent.summary.anthropicModel, undefined);
+    assert.equal(sent.providerSettings.openai.apiKey, "saved-openai-key");
+    assert.equal(sent.providerSettings.anthropic.apiKey, "saved-anthropic-key");
+    page.updates[0].respond({ ok: true, settings: mergeSettings(sent) });
+    await flush();
+    const reopened = await harness(mergeSettings(sent), distribution);
+    for (const provider of ["openai", "anthropic"]) {
+      assert.equal(select(reopened.document, `summary-${provider}-model`).value, "");
+      assert.equal((reopened.document.getElementById(`summary-${provider}-api-key`) as HTMLInputElement).value, "");
+    }
+  });
+}
 
 test("shared provider switching and Save preserve editable non-Gemini drafts with both Gemini models fixed", async () => {
   const baseline = staleSettings("openai", "vertex");
@@ -352,7 +487,7 @@ test("development Options retains original provider and model selection without 
   assert.equal(select(page.document, "provider").value, "openai");
   assert.equal(select(page.document, "provider").disabled, false);
   assert.equal(select(page.document, "model").disabled, false);
-  assert.equal(select(page.document, "summary-gemini-model").options.length, 3);
+  assert.equal(select(page.document, "summary-gemini-model").options.length, 4);
   assert.equal(select(page.document, "summary-provider").value, "vertex");
   for (const id of ["translation-distribution-model-note", "summary-distribution-model-note"]) {
     assert.equal(page.document.getElementById(id)?.classList.contains("hidden"), true);

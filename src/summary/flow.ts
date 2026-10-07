@@ -1,5 +1,5 @@
 import type { RuntimeRequest } from "../shared/messages";
-import type { SummaryProviderId, SummaryResult } from "../shared/types";
+import type { ApiSummaryProviderId, SummaryProviderId, SummaryResult } from "../shared/types";
 
 type SummaryGenerateRequest = Extract<
   RuntimeRequest,
@@ -42,8 +42,8 @@ export interface SummaryProviderAdapters {
     provider: "codex" | "claude",
     prompt: string,
   ): Promise<SummaryResult>;
-  google(
-    provider: "gemini" | "vertex",
+  api(
+    provider: ApiSummaryProviderId,
     prompt: string,
   ): Promise<SummaryResult>;
 }
@@ -59,7 +59,9 @@ export function dispatchSummaryProviderOnce(
       return adapters.native(provider, prompt);
     case "gemini":
     case "vertex":
-      return adapters.google(provider, prompt);
+    case "openai":
+    case "anthropic":
+      return adapters.api(provider, prompt);
     default: {
       const exhaustive: never = provider;
       throw new Error(`Unknown summary provider: ${exhaustive}`);

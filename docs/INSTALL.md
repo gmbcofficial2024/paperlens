@@ -39,7 +39,7 @@ Gemini를 선택한 번역·API 요약·연결 테스트는 `gemini-flash-latest
 
 업데이트 후 기존 Gemini Pro·Lite 선택은 Flash Latest로 전환됩니다. 다른 제공자는 알려진 이전 모델을 같은 용도의 현재 모델로 전환하며 제공자 선택과 API 키를 유지합니다. 사용자 지정 서버 설정과 직접 지정한 native 모델은 유지하며, 이전 Codex 기본값 `gpt-5.5`만 `gpt-6.1-sol`로 갱신합니다. [현재 모델·전환 안내](https://github.com/gmbcofficial2024/paperlens/blob/main/docs/MODELS.md)를 확인하세요. `1.1.2`에서 설정을 저장하여 Gemini로 전환되었다면 사용할 제공자를 다시 선택하세요.
 
-다른 번역 제공자, Vertex 요약과 사용자 지정 번역 서버도 배포판에서 설정할 수 있습니다. 사용자 지정 HTTPS 서버는 저장 시 해당 서버의 권한을 요청합니다. Codex/Claude 요약에는 [별도 native host 설치](https://github.com/gmbcofficial2024/paperlens/blob/main/docs/NATIVE_INSTALL.md)가 필요합니다.
+Vertex·OpenAI·Anthropic API는 번역과 **Paper & Article Summary**에서 각각 선택할 수 있습니다. 별도 요약 키·모델을 비우면 같은 제공자의 저장된 번역 설정을 재사용하며, 번역 모델도 없으면 해당 제공자의 기본 모델을 사용합니다. 요약 전용 키와 모델을 별도로 선택할 수도 있습니다. 다른 제공자의 키로 자동 전환하지 않습니다. 사용자 지정 HTTPS 서버는 번역에서 지원하며 저장 시 해당 서버의 권한을 요청합니다. Codex/Claude 요약에는 [별도 native host 설치](https://github.com/gmbcofficial2024/paperlens/blob/main/docs/NATIVE_INSTALL.md)가 필요합니다.
 
 ## 사용하기
 

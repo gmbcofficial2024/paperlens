@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.8
+
+- Add OpenAI and Anthropic API summaries for papers and ordinary articles, using the current translation model catalog and the existing safe summary prompt and response handling.
+- Allow a separate summary key and model for each API provider. Blank overrides reuse that provider's saved translation settings; provider choices and credentials remain separate.
+- Offer current Codex and Claude model suggestions while retaining arbitrary native model IDs and rolling aliases. Shared Releases still fix only Gemini API to Flash Latest.
+- Keep all summary keys inside trusted extension settings and redact them from page settings and provider errors. Verify routing, text responses, usage, missing keys and settings roundtrips without paid API calls.
+
 ## 1.1.7
 
 - Exclude the reported Nature magazine header, including its teaser, publication identifiers, date, byline and author-popup content, from translation and summary source.
