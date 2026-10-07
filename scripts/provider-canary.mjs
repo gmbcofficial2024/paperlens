@@ -8,15 +8,12 @@ const PROVIDER_ORDER = ["vertex", "openai", "anthropic"];
 const PROVIDER_SPECS = {
   vertex: {
     envName: "PAPERLENS_VERTEX_API_KEY",
-    models: ["gemini-3.1-pro-preview", "gemini-3.6-flash", "gemini-3.5-flash-lite"],
   },
   openai: {
     envName: "PAPERLENS_OPENAI_API_KEY",
-    models: ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"],
   },
   anthropic: {
     envName: "PAPERLENS_ANTHROPIC_API_KEY",
-    models: ["claude-opus-4-8", "claude-sonnet-5", "claude-haiku-4-5-20251001"],
   },
 };
 
@@ -43,14 +40,16 @@ export function withCanaryOutputLimit(provider, body) {
       ...body,
       generationConfig: {
         ...(body.generationConfig ?? {}),
-        maxOutputTokens: 16,
+        maxOutputTokens: 1024,
       },
     };
   }
   if (provider === "openai") {
-    return { ...body, max_completion_tokens: 16 };
+    const reasoning = body.reasoning_effort && body.reasoning_effort !== "none";
+    return { ...body, max_completion_tokens: reasoning ? 1024 : 16 };
   }
-  return { ...body, max_tokens: 16 };
+  const alwaysThinking = body.model === "claude-opus-5-5" || body.model === "claude-fable-5-1";
+  return { ...body, max_tokens: alwaysThinking ? 1024 : 16 };
 }
 
 async function loadProviderProtocol() {
@@ -61,7 +60,12 @@ async function loadProviderProtocol() {
   try {
     const esbuild = await import("esbuild");
     await esbuild.build({
-      entryPoints: [join(projectRoot, "src/shared/provider-protocol.ts")],
+      stdin: {
+        contents: 'export * from "./src/shared/provider-protocol"; export { PROVIDERS } from "./src/shared/providers";',
+        resolveDir: projectRoot,
+        sourcefile: "provider-canary-entry.ts",
+        loader: "ts",
+      },
       outfile: outputFile,
       bundle: true,
       format: "esm",
@@ -120,7 +124,7 @@ async function run(argv) {
       console.log(`${provider}: SKIP missing ${spec.envName}`);
       continue;
     }
-    runnable.push({ provider, spec, apiKey });
+    runnable.push({ provider, apiKey });
   }
 
   if (runnable.length === 0) return [];
@@ -128,8 +132,8 @@ async function run(argv) {
   const { protocol, temporaryDirectory } = await loadProviderProtocol();
   const results = [];
   try {
-    for (const { provider, spec, apiKey } of runnable) {
-      for (const model of spec.models) {
+    for (const { provider, apiKey } of runnable) {
+      for (const { id: model } of protocol.PROVIDERS[provider].models) {
         results.push(await runModelCanary(provider, model, apiKey, protocol));
       }
     }

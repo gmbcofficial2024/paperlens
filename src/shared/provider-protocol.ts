@@ -107,7 +107,11 @@ export function prepareProviderRequest(options: ProviderCallOptions): PreparedPr
         },
         {
           model,
-          temperature: 0.3,
+          ...(model === "gpt-6-astra" || model === "gpt-6.1-sol"
+            ? { reasoning_effort: "low" }
+            : model === "gpt-6-luna"
+              ? { reasoning_effort: "none", temperature: 0.3 }
+              : { temperature: 0.3 }),
           ...(outputMode === "json" ? { response_format: { type: "json_object" } } : {}),
           ...(stream ? { stream: true, stream_options: { include_usage: true } } : {}),
           messages: [
@@ -130,6 +134,7 @@ export function prepareProviderRequest(options: ProviderCallOptions): PreparedPr
           model,
           max_tokens: 16384,
           ...(model === "claude-sonnet-5" ? { thinking: { type: "disabled" } } : {}),
+          ...(model === "claude-sonnet-5-5" ? { thinking: { type: "between_tools" } } : {}),
           ...(stream ? { stream: true } : {}),
           system: systemPrompt,
           messages: [{ role: "user", content: userPrompt }],

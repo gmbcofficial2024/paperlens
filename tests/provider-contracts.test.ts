@@ -14,24 +14,25 @@ import { buildVertexApiKeyUrl } from "../src/shared/vertex";
 test("fixed provider registries expose the refreshed models and defaults", () => {
   assert.deepEqual(PROVIDERS.vertex.models.map(({ id }) => id), [
     "gemini-3.1-pro-preview",
-    "gemini-3.6-flash",
+    "gemini-3.8-flash",
     "gemini-3.5-flash-lite",
   ]);
-  assert.equal(PROVIDERS.vertex.defaultModel, "gemini-3.6-flash");
+  assert.equal(PROVIDERS.vertex.defaultModel, "gemini-3.8-flash");
 
   assert.deepEqual(PROVIDERS.openai.models.map(({ id }) => id), [
-    "gpt-5.6-sol",
-    "gpt-5.6-terra",
-    "gpt-5.6-luna",
+    "gpt-6-astra",
+    "gpt-6.1-sol",
+    "gpt-6-luna",
   ]);
-  assert.equal(PROVIDERS.openai.defaultModel, "gpt-5.6-terra");
+  assert.equal(PROVIDERS.openai.defaultModel, "gpt-6.1-sol");
 
   assert.deepEqual(PROVIDERS.anthropic.models.map(({ id }) => id), [
-    "claude-opus-4-8",
-    "claude-sonnet-5",
+    "claude-fable-5-1",
+    "claude-opus-5-5",
+    "claude-sonnet-5-5",
     "claude-haiku-4-5-20251001",
   ]);
-  assert.equal(PROVIDERS.anthropic.defaultModel, "claude-sonnet-5");
+  assert.equal(PROVIDERS.anthropic.defaultModel, "claude-sonnet-5-5");
 });
 
 test("stored fixed-provider models migrate by product role", () => {
@@ -45,22 +46,22 @@ test("stored fixed-provider models migrate by product role", () => {
     summary: { vertexModel: "gemini-flash-lite-latest" },
   });
 
-  assert.equal(settings.providerSettings.vertex.model, "gemini-3.6-flash");
-  assert.equal(settings.providerSettings.openai.model, "gpt-5.6-luna");
-  assert.equal(settings.providerSettings.anthropic.model, "claude-sonnet-5");
+  assert.equal(settings.providerSettings.vertex.model, "gemini-3.8-flash");
+  assert.equal(settings.providerSettings.openai.model, "gpt-6-luna");
+  assert.equal(settings.providerSettings.anthropic.model, "claude-sonnet-5-5");
   assert.equal(settings.providerSettings.custom.model, "private-model-v7");
   assert.equal(settings.summary.vertexModel, "gemini-3.5-flash-lite");
 });
 
 test("every documented fixed-provider legacy model migrates to its current role", () => {
   const vertexMigrations = new Map([
-    ["google/gemini-3.5-flash", "gemini-3.6-flash"],
+    ["google/gemini-3.5-flash", "gemini-3.8-flash"],
     ["google/gemini-3.1-flash-lite", "gemini-3.5-flash-lite"],
     ["google/gemini-3.1-pro-preview", "gemini-3.1-pro-preview"],
-    ["gemini-flash-latest", "gemini-3.6-flash"],
+    ["gemini-flash-latest", "gemini-3.8-flash"],
     ["gemini-flash-lite-latest", "gemini-3.5-flash-lite"],
     ["gemini-pro-latest", "gemini-3.1-pro-preview"],
-    ["gemini-2.5-flash", "gemini-3.6-flash"],
+    ["gemini-2.5-flash", "gemini-3.8-flash"],
     ["gemini-2.5-flash-lite", "gemini-3.5-flash-lite"],
     ["gemini-2.5-pro", "gemini-3.1-pro-preview"],
   ]);
@@ -70,10 +71,10 @@ test("every documented fixed-provider legacy model migrates to its current role"
   }
 
   const openAiMigrations = new Map([
-    ["gpt-4.1", "gpt-5.6-terra"],
-    ["gpt-4o", "gpt-5.6-terra"],
-    ["gpt-4o-mini", "gpt-5.6-luna"],
-    ["o3-mini", "gpt-5.6-terra"],
+    ["gpt-4.1", "gpt-6.1-sol"],
+    ["gpt-4o", "gpt-6.1-sol"],
+    ["gpt-4o-mini", "gpt-6-luna"],
+    ["o3-mini", "gpt-6.1-sol"],
   ]);
   for (const [legacy, current] of openAiMigrations) {
     const settings = mergeSettings({ providerSettings: { openai: { model: legacy } } });
@@ -81,8 +82,8 @@ test("every documented fixed-provider legacy model migrates to its current role"
   }
 
   const anthropicMigrations = new Map([
-    ["claude-opus-4-20250514", "claude-opus-4-8"],
-    ["claude-sonnet-4-20250514", "claude-sonnet-5"],
+    ["claude-opus-4-20250514", "claude-opus-5-5"],
+    ["claude-sonnet-4-20250514", "claude-sonnet-5-5"],
     ["claude-haiku-4-20250414", "claude-haiku-4-5-20251001"],
   ]);
   for (const [legacy, current] of anthropicMigrations) {
@@ -107,7 +108,7 @@ test("legacy bare and resource-path Vertex IDs preserve their product tier", () 
   });
 
   assert.equal(bare.providerSettings.vertex.model, "gemini-3.5-flash-lite");
-  assert.equal(bare.summary.vertexModel, "gemini-3.6-flash");
+  assert.equal(bare.summary.vertexModel, "gemini-3.8-flash");
   assert.equal(resourcePath.providerSettings.vertex.model, "gemini-3.5-flash-lite");
 });
 
@@ -134,7 +135,7 @@ test("unknown fixed-provider models fall back while absent and custom models are
 test("Vertex request URLs contain every bare refreshed model ID", () => {
   for (const model of [
     "gemini-3.1-pro-preview",
-    "gemini-3.6-flash",
+    "gemini-3.8-flash",
     "gemini-3.5-flash-lite",
   ]) {
     assert.equal(
@@ -240,22 +241,22 @@ test("OpenAI uses current defaults, developer instructions, JSON mode, and strea
   });
   const body = JSON.parse(String(request.init.body));
 
-  assert.equal(body.model, "gpt-5.6-terra");
+  assert.equal(body.model, "gpt-6.1-sol");
   assert.equal(body.messages[0].role, "developer");
   assert.deepEqual(body.response_format, { type: "json_object" });
   assert.deepEqual(body.stream_options, { include_usage: true });
 });
 
-test("Anthropic Sonnet disables thinking and parses text blocks after thinking", () => {
+test("Anthropic Sonnet 5.5 avoids up-front thinking and parses text blocks after thinking", () => {
   const request = prepareProviderRequest({
     provider: "anthropic",
-    setting: { apiKey: "secret", model: "claude-sonnet-5" },
+    setting: { apiKey: "secret", model: "claude-sonnet-5-5" },
     systemPrompt: "system",
     userPrompt: "user",
     outputMode: "json",
     stream: false,
   });
-  assert.deepEqual(JSON.parse(String(request.init.body)).thinking, { type: "disabled" });
+  assert.deepEqual(JSON.parse(String(request.init.body)).thinking, { type: "between_tools" });
 
   assert.deepEqual(parseProviderResponse("anthropic", {
     content: [
@@ -267,6 +268,47 @@ test("Anthropic Sonnet disables thinking and parses text blocks after thinking",
     usage: { input_tokens: 4, output_tokens: 5 },
   }), { text: "AB", usage: { inputTokens: 4, outputTokens: 5 } });
 });
+
+for (const model of ["gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna"]) {
+  for (const stream of [false, true]) {
+    test(`${model} prepares a compatible ${stream ? "streaming" : "non-streaming"} translation request`, () => {
+      const request = prepareProviderRequest({
+        provider: "openai", setting: { apiKey: "synthetic-openai-key", model },
+        systemPrompt: "Return a JSON object containing translations.", userPrompt: "Translate this paragraph.",
+        outputMode: "json", stream,
+      });
+      const body = JSON.parse(String(request.init.body));
+      assert.equal(request.url, "https://api.openai.com/v1/chat/completions");
+      assert.equal(body.model, model);
+      assert.equal(body.reasoning_effort, model === "gpt-6-luna" ? "none" : "low");
+      assert.equal(body.temperature, model === "gpt-6-luna" ? 0.3 : undefined);
+      assert.equal(body.top_p, undefined);
+      assert.equal(body.logprobs, undefined);
+      assert.equal(body.messages[0].role, "developer");
+      assert.deepEqual(body.response_format, { type: "json_object" });
+      assert.equal(body.stream, stream ? true : undefined);
+      assert.deepEqual(body.stream_options, stream ? { include_usage: true } : undefined);
+    });
+  }
+}
+
+for (const model of ["claude-fable-5-1", "claude-opus-5-5", "claude-haiku-4-5-20251001"]) {
+  test(`${model} accepts text and stream requests without unsupported thinking or sampling options`, () => {
+    for (const stream of [false, true]) {
+      const request = prepareProviderRequest({
+        provider: "anthropic", setting: { apiKey: "synthetic-anthropic-key", model },
+        systemPrompt: "Translate the supplied source.", userPrompt: "Source paragraph.", outputMode: "text", stream,
+      });
+      const body = JSON.parse(String(request.init.body));
+      assert.equal(body.model, model);
+      assert.equal(body.thinking, undefined);
+      assert.equal(body.temperature, undefined);
+      assert.equal(body.top_p, undefined);
+      assert.equal(body.max_tokens, 16384);
+      assert.equal(body.stream, stream ? true : undefined);
+    }
+  });
+}
 
 test("Custom requests require a model and omit blank authorization", () => {
   const request = prepareProviderRequest({
@@ -457,14 +499,20 @@ test("live canary selection and status formatting are deterministic and secret-f
   assert.deepEqual(selectedProviders(["--provider", "vertex"]), ["vertex"]);
   assert.deepEqual(selectedProviders(["vertex"]), ["vertex"]);
   assert.throws(() => selectedProviders(["--provider", "unsupported"]), /unsupported provider/i);
-  const line = statusLine("vertex", "gemini-3.6-flash", "PASS");
-  assert.equal(line, "vertex gemini-3.6-flash: PASS");
+  const line = statusLine("vertex", "gemini-3.8-flash", "PASS");
+  assert.equal(line, "vertex gemini-3.8-flash: PASS");
   assert.equal(line.includes(secret), false);
   assert.equal(exitCodeForResults([]), 0);
   assert.equal(exitCodeForResults([true, true]), 0);
   assert.equal(exitCodeForResults([true, false]), 1);
   assert.equal(withCanaryOutputLimit("vertex", { generationConfig: {} })
-    .generationConfig.maxOutputTokens, 16);
+    .generationConfig.maxOutputTokens, 1024);
   assert.equal(withCanaryOutputLimit("openai", {}).max_completion_tokens, 16);
   assert.equal(withCanaryOutputLimit("anthropic", { max_tokens: 16384 }).max_tokens, 16);
+  assert.equal(withCanaryOutputLimit("openai", { model: "gpt-6-astra", reasoning_effort: "low" }).max_completion_tokens, 1024);
+  assert.equal(withCanaryOutputLimit("openai", { model: "gpt-6.1-sol", reasoning_effort: "low" }).max_completion_tokens, 1024);
+  assert.equal(withCanaryOutputLimit("openai", { model: "gpt-6-luna", reasoning_effort: "none" }).max_completion_tokens, 16);
+  assert.equal(withCanaryOutputLimit("anthropic", { model: "claude-opus-5-5" }).max_tokens, 1024);
+  assert.equal(withCanaryOutputLimit("anthropic", { model: "claude-fable-5-1" }).max_tokens, 1024);
+  assert.equal(withCanaryOutputLimit("anthropic", { model: "claude-sonnet-5-5", thinking: { type: "between_tools" } }).max_tokens, 16);
 });

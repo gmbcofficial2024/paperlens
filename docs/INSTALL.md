@@ -37,7 +37,7 @@ Chrome은 이 폴더의 파일을 계속 읽습니다. 설치 후 폴더를 삭�
 
 Gemini를 선택한 번역·API 요약·연결 테스트는 `gemini-flash-latest`를 사용합니다. Gemini 모델 선택만 고정되며, Google은 이 `latest` 별칭이 가리키는 실제 버전을 갱신할 수 있습니다. [Google 모델 별칭 안내](https://ai.google.dev/gemini-api/docs/models#latest)
 
-업데이트 후 기존 Gemini Pro·Lite 선택만 Flash Latest로 전환되며, 다른 제공자의 선택·모델·키는 유지됩니다. `1.1.2`에서 설정을 저장하여 Gemini로 전환되었다면 사용할 제공자를 다시 선택하세요.
+업데이트 후 기존 Gemini Pro·Lite 선택은 Flash Latest로 전환됩니다. 다른 제공자는 알려진 이전 모델을 같은 용도의 현재 모델로 전환하며 제공자 선택과 API 키를 유지합니다. 사용자 지정 서버 설정과 직접 지정한 native 모델은 유지하며, 이전 Codex 기본값 `gpt-5.5`만 `gpt-6.1-sol`로 갱신합니다. [현재 모델·전환 안내](https://github.com/gmbcofficial2024/paperlens/blob/main/docs/MODELS.md)를 확인하세요. `1.1.2`에서 설정을 저장하여 Gemini로 전환되었다면 사용할 제공자를 다시 선택하세요.
 
 다른 번역 제공자, Vertex 요약과 사용자 지정 번역 서버도 배포판에서 설정할 수 있습니다. 사용자 지정 HTTPS 서버는 저장 시 해당 서버의 권한을 요청합니다. Codex/Claude 요약에는 [별도 native host 설치](https://github.com/gmbcofficial2024/paperlens/blob/main/docs/NATIVE_INSTALL.md)가 필요합니다.
 

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readSettings, writeSettings } from "../src/shared/storage";
 import type { ExtensionSettings } from "../src/shared/types";
 
-test("local storage round-trips all five translation keys and two summary keys", async () => {
+test("local storage refreshes legacy models while retaining all keys and provider settings", async () => {
   const records: Record<string, unknown> = {};
   const previousChrome = Object.getOwnPropertyDescriptor(globalThis, "chrome");
   Object.defineProperty(globalThis, "chrome", {
@@ -63,6 +63,19 @@ test("local storage round-trips all five translation keys and two summary keys",
     assert.equal(loaded.providerSettings.custom.apiKey, "synthetic-translation-custom-key");
     assert.equal(loaded.summary.geminiApiKey, "synthetic-summary-gemini-key");
     assert.equal(loaded.summary.vertexApiKey, "synthetic-summary-vertex-key");
+    assert.equal(loaded.currentProvider, "gemini");
+    assert.equal(loaded.providerSettings.vertex.model, "gemini-3.8-flash");
+    assert.equal(loaded.providerSettings.openai.model, "gpt-6.1-sol");
+    assert.equal(loaded.providerSettings.anthropic.model, "claude-sonnet-5-5");
+    assert.deepEqual(loaded.providerSettings.custom, settings.providerSettings.custom);
+    assert.equal(loaded.summary.provider, "gemini");
+    assert.equal(loaded.summary.codexModel, "gpt-6.1-sol");
+    assert.equal(loaded.summary.claudeModel, "opus");
+    assert.equal(loaded.summary.vertexModel, "gemini-3.8-flash");
+    assert.equal(loaded.customPrompt, settings.customPrompt);
+    assert.equal(loaded.summary.prompt, settings.summary.prompt);
+    await writeSettings(loaded);
+    assert.deepEqual(await readSettings(), loaded);
   } finally {
     if (previousChrome) {
       Object.defineProperty(globalThis, "chrome", previousChrome);

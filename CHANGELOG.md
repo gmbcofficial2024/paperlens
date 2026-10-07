@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.6
+
+- Refresh OpenAI choices to GPT-6 Astra, GPT-6.1 Sol and GPT-6 Luna; use compatible reasoning and sampling options for each model.
+- Refresh Anthropic choices to Fable 5.1, Opus 5.5, Sonnet 5.5 and Haiku 4.5. Sonnet 5.5 uses its supported no-up-front-thinking mode; Opus and Fable retain adaptive thinking.
+- Update Vertex Flash to Gemini 3.8 Flash and the native Codex summary default to GPT-6.1 Sol. Keep the Gemini API Release policy fixed to Flash Latest.
+- Migrate recognized older model presets while preserving provider selections, all credentials, custom endpoints/models and explicit native choices other than the former Codex default.
+- Use the same model registry for live canary choices and allow a bounded reasoning budget. Live model requests remain an explicitly invoked, separately billed check.
+
 ## 1.1.5
 
 - Exclude site-wide headers and footers while preserving article-owned introductory text, conclusions, scientific notes, captions and tables in translation and summary source.

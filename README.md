@@ -52,7 +52,7 @@ GitHub 배포는 Chrome의 스토어 자동 업데이트를 제공하지 않습�
 | 현재 문서 요약 | `Alt+S` 또는 팝업의 요약 버튼 |
 | 설정 변경 후 적용 | 저장 후 기사 탭 새로고침 |
 
-**Test saved API connection**은 저장된 번역 설정으로 짧은 요청을 보냅니다. 배포판은 **Gemini의 번역·요약 모델만** `gemini-flash-latest`로 고정합니다. Vertex AI, OpenAI, Anthropic, 사용자 지정 번역 서버와 Vertex 요약은 계속 선택할 수 있으며 각 제공자의 모델 설정을 유지합니다. 번역·요약·연결 테스트에는 선택한 제공자의 API 요금이 발생할 수 있습니다. 번역 시작 전 자동 요약은 기본적으로 꺼져 있습니다. Codex·Claude 로컬 요약은 별도 설치 후 사용할 수 있습니다.
+**Test saved API connection**은 저장된 번역 설정으로 짧은 요청을 보냅니다. 배포판은 **Gemini의 번역·요약 모델만** `gemini-flash-latest`로 고정합니다. Vertex AI, OpenAI, Anthropic, 사용자 지정 번역 서버와 Vertex 요약은 계속 선택할 수 있습니다. 알려진 이전 모델 선택은 같은 용도의 현재 모델로 전환하며 제공자와 API 키는 유지합니다. [현재 모델과 전환 안내](docs/MODELS.md)를 확인하세요. 번역·요약·연결 테스트에는 선택한 제공자의 API 요금이 발생할 수 있습니다. 번역 시작 전 자동 요약은 기본적으로 꺼져 있습니다. Codex·Claude 로컬 요약은 별도 설치 후 사용할 수 있습니다.
 
 기존 Gemini Pro·Lite 모델 선택은 업데이트 시 Gemini Flash Latest로 전환됩니다. 다른 제공자의 선택과 API 키는 유지됩니다. `1.1.2`에서 설정을 저장해 Gemini로 바뀌었다면 사용할 제공자를 다시 선택하세요. Gemini 모델 식별자는 고정되지만 Google이 `latest` 별칭이 가리키는 버전을 갱신할 수 있습니다. [Google 모델 별칭 안내](https://ai.google.dev/gemini-api/docs/models#latest)
 

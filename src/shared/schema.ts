@@ -17,15 +17,20 @@ import {
 import { normalizeOptionalVertexModel } from "./vertex";
 
 const OPENAI_MODEL_MIGRATIONS: Record<string, string> = {
-  "gpt-4.1": "gpt-5.6-terra",
-  "gpt-4o": "gpt-5.6-terra",
-  "gpt-4o-mini": "gpt-5.6-luna",
-  "o3-mini": "gpt-5.6-terra",
+  "gpt-5.6-sol": "gpt-6.1-sol",
+  "gpt-5.6-terra": "gpt-6.1-sol",
+  "gpt-5.6-luna": "gpt-6-luna",
+  "gpt-4.1": "gpt-6.1-sol",
+  "gpt-4o": "gpt-6.1-sol",
+  "gpt-4o-mini": "gpt-6-luna",
+  "o3-mini": "gpt-6.1-sol",
 };
 
 const ANTHROPIC_MODEL_MIGRATIONS: Record<string, string> = {
-  "claude-opus-4-20250514": "claude-opus-4-8",
-  "claude-sonnet-4-20250514": "claude-sonnet-5",
+  "claude-opus-4-8": "claude-opus-5-5",
+  "claude-sonnet-5": "claude-sonnet-5-5",
+  "claude-opus-4-20250514": "claude-opus-5-5",
+  "claude-sonnet-4-20250514": "claude-sonnet-5-5",
   "claude-haiku-4-20250414": "claude-haiku-4-5-20251001",
 };
 
@@ -121,6 +126,7 @@ function mergeSummarySettings(defaults: SummarySettings, rawSummary: unknown): S
   return {
     ...defaults,
     ...raw,
+    ...(raw.codexModel === "gpt-5.5" ? { codexModel: DEFAULT_CODEX_SUMMARY_MODEL } : {}),
     vertexModel,
     prompt: typeof raw.prompt === "string" && raw.prompt.trim()
       ? raw.prompt

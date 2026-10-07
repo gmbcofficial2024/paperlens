@@ -60,9 +60,9 @@ function legacySettings(): ExtensionSettings {
     currentProvider: "openai",
     providerSettings: {
       gemini: { model: "gemini-pro-latest", apiKey: "synthetic-gemini-key" },
-      vertex: { model: "gemini-3.6-flash", apiKey: "synthetic-vertex-key" },
-      openai: { model: "gpt-5.6-terra", apiKey: "synthetic-openai-key" },
-      anthropic: { model: "claude-sonnet-5", apiKey: "synthetic-anthropic-key" },
+      vertex: { model: "gemini-3.8-flash", apiKey: "synthetic-vertex-key" },
+      openai: { model: "gpt-6.1-sol", apiKey: "synthetic-openai-key" },
+      anthropic: { model: "claude-sonnet-5-5", apiKey: "synthetic-anthropic-key" },
       custom: { model: "private-model", apiKey: "synthetic-custom-key", customUrl: "https://api.example.test/v1/chat/completions" },
     },
     cacheEnabled: true,
@@ -74,7 +74,7 @@ function legacySettings(): ExtensionSettings {
       prompt: "Preserve measurement limitations.",
       geminiModel: "arbitrary-summary-model",
       geminiApiKey: "synthetic-gemini-summary-key",
-      vertexModel: "gemini-3.6-flash",
+      vertexModel: "gemini-3.8-flash",
       vertexApiKey: "synthetic-vertex-summary-key",
       codexModel: "native-codex-model",
       claudeModel: "native-claude-model",
@@ -190,13 +190,13 @@ for (const request of [
   },
   {
     provider: "openai" as const,
-    model: "gpt-5.6-terra",
+    model: "gpt-6.1-sol",
     url: "https://api.openai.com/v1/chat/completions",
     headers: { "Content-Type": "application/json", Authorization: "Bearer synthetic-openai-key" },
   },
   {
     provider: "anthropic" as const,
-    model: "claude-sonnet-5",
+    model: "claude-sonnet-5-5",
     url: "https://api.anthropic.com/v1/messages",
     headers: {
       "Content-Type": "application/json",
@@ -273,7 +273,7 @@ test("configuration keys reflect the normalized distribution model and preserve 
 test("distribution configuration keys still distinguish non-Gemini models", async () => {
   const rawTerra = legacySettings();
   const rawLuna = structuredClone(rawTerra);
-  rawLuna.providerSettings.openai.model = "gpt-5.6-luna";
+  rawLuna.providerSettings.openai.model = "gpt-6-luna";
   const release = await edition(true);
   assert.notEqual(
     await release.translationConfigurationKey(release.mergeSettings(rawTerra)),

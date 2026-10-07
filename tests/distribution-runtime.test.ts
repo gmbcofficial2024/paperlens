@@ -216,6 +216,12 @@ test("tab-hosted options page can read saved credentials and persist settings in
     assert.equal(reopened.settings.providerSettings.gemini.apiKey, "synthetic-updated-gemini-key");
     assert.equal(reopened.settings.summary.geminiApiKey, SUMMARY_KEY);
     assert.equal(reopened.settings.providerSettings.gemini.model, "gemini-flash-latest");
+    assert.equal(reopened.settings.providerSettings.openai.model, "gpt-6.1-sol");
+    assert.equal(reopened.settings.providerSettings.openai.apiKey, stored.providerSettings.openai.apiKey);
+    assert.equal(reopened.settings.providerSettings.anthropic.model, "claude-opus-5-5");
+    assert.equal(reopened.settings.providerSettings.anthropic.apiKey, stored.providerSettings.anthropic.apiKey);
+    assert.equal(reopened.settings.summary.codexModel, "gpt-6.1-sol");
+    assert.deepEqual(reopened.settings.providerSettings.custom, stored.providerSettings.custom);
     assert.equal(worker.requests.length, 0);
   } finally { worker.dispose(); }
 });
@@ -245,8 +251,13 @@ test("unknown and web senders cannot access credentials or mutate packaged-worke
 });
 
 for (const provider of ["vertex", "openai", "anthropic", "custom", "gemini"] as const) {
-  test(`distribution worker preserves stored ${provider} selection and fixes only Gemini models`, async () => {
+  test(`distribution worker preserves stored ${provider} selection while migrating known models and fixing Gemini`, async () => {
     const stored = legacySettings(provider, provider === "vertex" ? "vertex" : "gemini");
+    const expectedProviderSettings = {
+      ...stored.providerSettings,
+      openai: { ...stored.providerSettings.openai, model: "gpt-6.1-sol" },
+      anthropic: { ...stored.providerSettings.anthropic, model: "claude-opus-5-5" },
+    };
     const worker = loadWorker(stored);
     try {
       const settings = await worker.message({ type: "settings/get" });
@@ -258,7 +269,7 @@ for (const provider of ["vertex", "openai", "anthropic", "custom", "gemini"] as 
       assert.equal(settings.settings.providerSettings.gemini.apiKey, TRANSLATION_KEY);
       assert.equal(settings.settings.summary.geminiApiKey, SUMMARY_KEY);
       for (const preserved of ["vertex", "openai", "anthropic", "custom"] as const) {
-        assert.deepEqual(settings.settings.providerSettings[preserved], stored.providerSettings[preserved]);
+        assert.deepEqual(settings.settings.providerSettings[preserved], expectedProviderSettings[preserved]);
       }
       assert.equal(settings.settings.summary.vertexModel, stored.summary.vertexModel);
       assert.equal(settings.settings.summary.vertexApiKey, stored.summary.vertexApiKey);
@@ -266,7 +277,7 @@ for (const provider of ["vertex", "openai", "anthropic", "custom", "gemini"] as 
       assert.doesNotMatch(JSON.stringify(visible.settings), /synthetic-.*-key/);
       const translated = await worker.message({ type: "translate/paragraph", text: "Independent evidence.", paragraphId: "p1" });
       if (provider === "gemini") assertGeminiRequest(worker.requests[0], TRANSLATION_KEY);
-      else assertOtherProviderRequest(worker.requests[0], provider, stored.providerSettings[provider]);
+      else assertOtherProviderRequest(worker.requests[0], provider, expectedProviderSettings[provider]);
       assert.equal(translated.ok, true);
       assert.deepEqual(translated.result, { ...translation, usage: { inputTokens: 4, outputTokens: 2 } });
       const summarized = await worker.message({ type: "summary/generate", title: "Study", articleText: "Independent evidence.", kind: "paper" });
@@ -326,7 +337,48 @@ for (const provider of ["codex", "claude"] as const) {
       assert.equal(worker.nativeRequests.length, 1);
       assert.equal(worker.nativeRequests[0].host, "com.paperlens.summary_host");
       assert.equal(worker.nativeRequests[0].request.provider, provider);
+      assert.equal(worker.nativeRequests[0].request.codexModel, "gpt-6.1-sol");
+      assert.equal(worker.nativeRequests[0].request.claudeModel, "opus");
       assert.doesNotMatch(JSON.stringify(worker.nativeRequests), /synthetic-.*-key/);
     } finally { worker.dispose(); }
   });
+}
+
+test("distribution worker preserves an explicit native Codex model independently of API migrations", async () => {
+  const stored = legacySettings("openai", "codex");
+  stored.summary.codexModel = "private-codex-model-v7";
+  const worker = loadWorker(stored);
+  try {
+    const response = await worker.message({ type: "summary/generate", articleText: "Independent evidence." });
+    assert.equal(response.ok, true);
+    assert.equal(worker.requests.length, 0);
+    assert.equal(worker.nativeRequests.length, 1);
+    assert.equal(worker.nativeRequests[0].request.codexModel, "private-codex-model-v7");
+    assert.doesNotMatch(JSON.stringify(worker.nativeRequests), /synthetic-.*-key/);
+  } finally { worker.dispose(); }
+});
+
+for (const [provider, models] of [
+  ["openai", ["gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna"]],
+  ["anthropic", ["claude-fable-5-1", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-4-5-20251001"]],
+] as const) {
+  for (const model of models) {
+    test(`distribution worker retains explicit ${model} and uses its own provider credential`, async () => {
+      const stored = legacySettings(provider);
+      stored.providerSettings[provider].model = model;
+      const worker = loadWorker(stored);
+      try {
+        const response = await worker.message({ type: "translate/paragraph", text: "Independent evidence.", paragraphId: "p1" });
+        assert.equal(response.ok, true);
+        assert.equal(worker.requests.length, 1);
+        assertOtherProviderRequest(worker.requests[0], provider, stored.providerSettings[provider]);
+        if (provider === "openai") {
+          assert.equal(worker.requests[0].body.reasoning_effort, model === "gpt-6-luna" ? "none" : "low");
+          if (model === "gpt-6-luna") assert.equal(worker.requests[0].body.temperature, 0.3);
+          else assert.equal("temperature" in worker.requests[0].body, false);
+        }
+        assert.equal(worker.nativeRequests.length, 0);
+      } finally { worker.dispose(); }
+    });
+  }
 }

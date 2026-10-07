@@ -39,7 +39,7 @@ test("migrates legacy provider settings and ignores unknown settings", () => {
   assert.equal(settings.summary.provider, "gemini");
   assert.equal(settings.summary.autoGenerate, false);
   assert.match(settings.summary.prompt, /concise Korean summary/i);
-  assert.equal(settings.summary.codexModel, "gpt-5.5");
+  assert.equal(settings.summary.codexModel, "gpt-6.1-sol");
   assert.equal(settings.summary.claudeModel, "opus");
 });
 
@@ -89,7 +89,7 @@ test("builds Vertex express-mode API key URLs without project or location", () =
       model: "google/gemini-3.5-flash",
       stream: false,
     }),
-    "https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-3.6-flash:generateContent?key=express-key",
+    "https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-3.8-flash:generateContent?key=express-key",
   );
   assert.equal(
     buildVertexApiKeyUrl({
@@ -108,7 +108,7 @@ test("normalizes legacy Vertex model aliases before building API key URLs", () =
       model: "gemini-flash-latest",
       stream: false,
     }),
-    "https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-3.6-flash:generateContent?key=express-key",
+    "https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-3.8-flash:generateContent?key=express-key",
   );
   assert.equal(
     buildVertexApiKeyUrl({
@@ -116,7 +116,7 @@ test("normalizes legacy Vertex model aliases before building API key URLs", () =
       model: "projects/1093533939667/locations/us-central1/publishers/google/models/gemini-flash-latest",
       stream: false,
     }),
-    "https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-3.6-flash:generateContent?key=express-key",
+    "https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-3.8-flash:generateContent?key=express-key",
   );
 });
 
@@ -133,7 +133,7 @@ test("migrates Vertex summary API key settings without requiring project or loca
   assert.equal(settings.summary.provider, "vertex");
   assert.equal(settings.summary.prompt, "Summarize through Vertex AI.");
   assert.equal(settings.summary.vertexApiKey, "summary-cloud-key");
-  assert.equal(settings.summary.vertexModel, "gemini-3.6-flash");
+  assert.equal(settings.summary.vertexModel, "gemini-3.8-flash");
   assert.equal("vertexProjectId" in settings.summary, false);
   assert.equal("vertexLocation" in settings.summary, false);
 });
@@ -197,15 +197,15 @@ test("normalizes stored Vertex legacy model aliases", () => {
     },
   });
 
-  assert.equal(settings.providerSettings.vertex.model, "gemini-3.6-flash");
+  assert.equal(settings.providerSettings.vertex.model, "gemini-3.8-flash");
   assert.equal(settings.summary.vertexModel, "gemini-3.1-pro-preview");
 });
 
 test("Vertex provider exposes Model Garden Gemini model IDs", () => {
-  assert.equal(PROVIDERS.vertex.defaultModel, "gemini-3.6-flash");
+  assert.equal(PROVIDERS.vertex.defaultModel, "gemini-3.8-flash");
   assert.deepEqual(
     PROVIDERS.vertex.models.map((model) => model.id),
-    ["gemini-3.1-pro-preview", "gemini-3.6-flash", "gemini-3.5-flash-lite"],
+    ["gemini-3.1-pro-preview", "gemini-3.8-flash", "gemini-3.5-flash-lite"],
   );
   assert.equal(
     PROVIDERS.vertex.models.some((model) => model.id === "gemini-flash-latest"),

@@ -12,12 +12,12 @@ Run the same checks locally before tagging:
 npm ci
 npm run typecheck
 npm test
-node scripts/package-share.mjs --release-tag v1.1.5
+node scripts/package-share.mjs --release-tag v1.1.6
 ```
 
-Replace `v1.1.5` with the version being released. The packaging command rejects differences among the four version fields above or a tag that is not exactly `v<manifest.version>`.
+Replace `v1.1.6` with the version being released. The packaging command rejects differences among the four version fields above or a tag that is not exactly `v<manifest.version>`.
 
-`package:share` always invokes the distribution build (`build.mjs --distribution`), which fixes only Google Gemini API requests to `gemini-flash-latest`. Other provider/model choices and optional Codex/Claude native summaries remain available. Only the stored Gemini model fields are normalized, and the final request boundary clamps Gemini requests without changing another provider's model or credentials. Ordinary `npm run build` remains the development build with Gemini model selection as well. Publish the packaged output, not development `dist/` bundles.
+`package:share` always invokes the distribution build (`build.mjs --distribution`), which fixes only Google Gemini API requests to `gemini-flash-latest`. Other provider/model choices and optional Codex/Claude native summaries remain available. The distribution-only policy normalizes stored Gemini model fields, and the final request boundary clamps Gemini requests without changing another provider's model or credentials. Ordinary `npm run build` remains the development build with Gemini model selection as well. Publish the packaged output, not development `dist/` bundles.
 
 The command produces:
 
@@ -33,8 +33,8 @@ The ZIP excludes native registration manifests, workstation paths, extension IDs
 After the prepared changes are committed to the public repository's `main`, create and push an annotated tag for that same version:
 
 ```powershell
-git tag -a v1.1.5 -m "PaperLens 1.1.5"
-git push origin v1.1.5
+git tag -a v1.1.6 -m "PaperLens 1.1.6"
+git push origin v1.1.6
 ```
 
 Tagging is the release trigger. The Release workflow checks all four version fields and their agreement with the tag, installs locked dependencies, runs typechecking and all tests, creates the assets, then publishes a GitHub Release containing the ZIP, `SHA256SUMS` and both helpers. The release body includes the user installation guide in `docs/RELEASE_NOTES.md` followed by generated changes. It uses the workflow's `GITHUB_TOKEN`; no maintainer token belongs in source or user downloads. The workflow publishes only from `gmbcofficial2024/paperlens`.
