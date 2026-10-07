@@ -7,7 +7,7 @@
 - 직접 설치하거나 macOS/Linux를 사용하는 경우 `paperlens-<version>.zip`을 사용하세요. `Source code` 압축 파일은 개발용 소스입니다.
 - 자신의 API 키를 입력해야 합니다. Gemini를 선택한 번역·요약·연결 테스트 모델만 `gemini-flash-latest`로 고정되며, 요청에는 선택한 제공자의 API 요금이 발생할 수 있습니다.
 
-`1.1.4`는 일반 탭으로 열린 Settings에서 저장이 실패하거나 저장된 API 키가 표시되지 않던 문제를 수정합니다. 저장 실패의 상세 원인도 키를 가린 상태로 표시합니다. 기존 API 제공자, 모델과 키는 유지되며 Gemini 모델만 Flash Latest로 고정됩니다. `1.1.2`에서 설정을 저장하여 제공자가 Gemini로 바뀌었다면 사용할 제공자를 다시 선택하세요. Codex·Claude 로컬 요약도 별도 설치 후 계속 사용할 수 있습니다. Google은 `latest` 별칭의 실제 모델 버전을 갱신할 수 있습니다.
+`1.1.5`는 사이트 공통 header/footer를 제외하면서 글에 속한 도입문·결론·과학적 각주(Footnotes/Endnotes)·캡션·표를 번역과 요약에 보존합니다. 참고문헌과 저자·연구비 정보는 기본적으로 제외합니다. 기존 API 제공자, 모델과 키는 유지되며 Gemini 모델만 Flash Latest로 고정됩니다. Codex·Claude 로컬 요약도 별도 설치 후 계속 사용할 수 있습니다. Google은 `latest` 별칭의 실제 모델 버전을 갱신할 수 있습니다.
 
 [설치·업데이트 안내](https://github.com/gmbcofficial2024/paperlens/blob/main/docs/INSTALL.md) · [사용법](https://github.com/gmbcofficial2024/paperlens#readme) · [변경 사항](https://github.com/gmbcofficial2024/paperlens/blob/main/CHANGELOG.md)
 

@@ -331,6 +331,94 @@ function delayNativeDigest(delayMs: number): () => void {
   };
 }
 
+test("reading session preserves article header and scientific footer in both provider payloads without changing original prose", async () => {
+  const harness = createHarness(settings(false));
+  try {
+    document.head.innerHTML = '<title>Device stability study</title><meta name="citation_title" content="Device stability study">';
+    document.body.innerHTML = `<main>
+      <header class="site-header" role="banner"><h1>Publisher portal</h1><p id="masthead">Browse our journal subscriptions and publishing services.</p></header>
+      <header class="article-header" role="banner"><h1>Device stability study</h1><p id="lead">The response is stable.</p></header>
+      <article><h2>Results</h2><p id="body">The same devices retained their <em id="scientific-term">switching response</em> after repeated pulses.</p>
+        <footer role="contentinfo"><h2>Conclusions</h2><p id="conclusion">The effect disappeared after cooling.</p>
+          <section role="doc-endnotes"><h2>Footnotes</h2><p id="condition">Reported currents were normalized to device area at 0.2 V.</p></section>
+          <nav><p id="inline-nav">Share this article and browse related publications.</p></nav>
+        </footer>
+      </article>
+      <footer role="contentinfo"><p id="site-footer-copy">Visit our corporate policies and partner publications.</p></footer>
+    </main>`;
+    const scientificNodes = ["lead", "body", "conclusion", "condition"].map((id) => {
+      const node = document.getElementById(id)!;
+      return { node, innerHTML: node.innerHTML, outerHTML: node.outerHTML, children: [...node.childNodes] };
+    });
+    const expectedTexts = scientificNodes.map(({ node }) => node.textContent!);
+    const excludedTexts = ["masthead", "inline-nav", "site-footer-copy"]
+      .map((id) => document.getElementById(id)!.textContent!);
+    const scientificTerm = document.getElementById("scientific-term")!;
+
+    const summary = harness.session.summarize();
+    await waitFor(() => harness.runtime.summaryCalls.length === 1, "header and footer summary request");
+    const summaryRequest = harness.runtime.summaryCalls[0].request;
+    assert.equal(summaryRequest.title, "Device stability study");
+    assert.equal(summaryRequest.sourceScope, "loaded-page");
+    let previousPosition = -1;
+    for (const text of expectedTexts) {
+      const position = summaryRequest.articleText.indexOf(text);
+      assert.ok(position > previousPosition, `Summary omitted or reordered scientific prose: ${text}`);
+      assert.equal(summaryRequest.articleText.split(text).length, 2, "Scientific prose must appear once");
+      previousPosition = position;
+    }
+    for (const text of excludedTexts) assert.equal(summaryRequest.articleText.includes(text), false);
+    for (const original of scientificNodes) assert.equal(original.node.outerHTML, original.outerHTML);
+    harness.runtime.summaryCalls[0].respond({ ok: true, result: { summary: "Scientific summary" } });
+    await summary;
+
+    const translation = harness.session.toggleTranslation();
+    let translationFinished = false;
+    void translation.then(
+      () => { translationFinished = true; },
+      () => { translationFinished = true; },
+    );
+    const translatedTexts: string[] = [];
+    let portIndex = 0;
+    while (!translationFinished) {
+      await waitFor(
+        () => translationFinished || harness.runtime.ports[portIndex]?.postedMessages.length === 1,
+        "header and footer translation request",
+      );
+      if (translationFinished) break;
+      const port = harness.runtime.ports[portIndex++];
+      const request = port.postedMessages[0] as { type: string; paragraphTexts: string[] };
+      assert.equal(request.type, "stream/translate-section");
+      translatedTexts.push(...request.paragraphTexts);
+      port.emitMessage({
+        type: "stream-section-done",
+        paragraphs: request.paragraphTexts.map((text) => ({ translation: `Translated: ${text}`, alignment: [] })),
+      });
+    }
+    await translation;
+    assert.deepEqual(translatedTexts, expectedTexts);
+    assert.equal(document.querySelectorAll(".paperlens-translation").length, expectedTexts.length);
+    for (const original of scientificNodes) {
+      assert.strictEqual(document.getElementById(original.node.id), original.node);
+      assert.equal(original.node.innerHTML, original.innerHTML);
+      assert.deepEqual([...original.node.childNodes], original.children);
+      assert.ok(original.node.nextElementSibling?.classList.contains("paperlens-translation"));
+    }
+    assert.strictEqual(document.getElementById("scientific-term"), scientificTerm);
+    for (const id of ["masthead", "inline-nav", "site-footer-copy"]) {
+      assert.equal(document.getElementById(id)!.hasAttribute("data-paperlens-id"), false);
+    }
+    harness.session.reset();
+    for (const original of scientificNodes) {
+      assert.strictEqual(document.getElementById(original.node.id), original.node);
+      assert.equal(original.node.outerHTML, original.outerHTML);
+    }
+  } finally {
+    harness.runtime.summaryCalls.forEach((call) => call.respond({ ok: false, error: "cleanup" }));
+    harness.restore();
+  }
+});
+
 test("Frontiers reading session translates scientific source and summarizes only the available abstract", async () => {
   const harness = createHarness(settings(false));
   const scientificText = "Physical dynamics can implement energy-efficient computation. The reported comparison preserves the measured values.";

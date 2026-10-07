@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.5
+
+- Exclude site-wide headers and footers while preserving article-owned introductory text, conclusions, scientific notes, captions and tables in translation and summary source.
+- Keep scientific Footnotes and Endnotes; continue excluding navigation, sharing controls, related articles, references and author/funding metadata by default.
+- Verify source ownership and original-node preservation across constructed publisher layouts and the shared translation/summary reading session.
+
 ## 1.1.4
 
 - Fix settings saving and credential display when Chrome opens the options page in a tab. Check the sender's extension ID and exact extension-page URL instead of treating every tab as a content script; unknown and web senders remain unable to change settings or read keys.

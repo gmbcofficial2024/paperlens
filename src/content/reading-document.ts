@@ -1,5 +1,5 @@
 import { collectParagraphs, type Section } from "./dom-parser";
-import { isSourceHidden } from "./text-extraction";
+import { isSourceHidden, SOURCE_UI_SELECTOR as UI_SELECTOR } from "./text-extraction";
 
 export interface ReadingScope {
   paragraphCount: number;
@@ -20,18 +20,7 @@ export interface ReadingDocumentOptions {
   includeTranslatedParagraphs?: boolean;
 }
 
-const UI_SELECTOR = [
-  "nav", "footer", "form", "button", "dialog", "[role='navigation']", "[role='banner']",
-  "[role='contentinfo']", "[role='dialog']", "[role='button']",
-  ".paperlens-translation", ".paperlens-summary", "[data-paperlens-ui]",
-  ".sidebar", ".comments", ".cookie", ".modal", ".popup", ".tooltip",
-  ".advertisement", ".ad-container", ".related-content", ".related-articles",
-  ".recommended-articles", ".RelatedArticles", ".collateral", ".embedded-form",
-  ".author-info", ".author-group", ".AuthorGroups", ".contrib-group", ".affiliations",
-  ".byline", ".metrics", ".article-metrics", ".keywords", ".copyright", ".license",
-  ".fig-modal", "figshare-widget", "[class*='figshare']", ".sticky-table-of-contents",
-  "#reading-assistant-container", "#issue-navigation",
-].join(",");
+const LANDMARK_SELECTOR = "header, footer, [role='banner'], [role='contentinfo']";
 const GATE_SELECTOR = [
   "[class*='paywall']", "[id*='paywall']", ".subscription-gate", ".login-modal",
   ".purchase-access", ".signin", ".sign-in", ".subscription-access", ".access-gate",
@@ -41,10 +30,10 @@ const GATE_SELECTOR = [
 const ANCILLARY_SELECTOR = [
   "#references", "#refs", "#bibliography", ".references", ".bibliography", ".ref-list",
   ".article-references", ".c-article-references", ".article-section--references", ".NLM_ref-list",
-  "[role='doc-bibliography']", "[role='doc-endnotes']", ".ltx_bibliography",
+  "[role='doc-bibliography']", ".ltx_bibliography",
   ".ltx_authors", ".ltx_permission", ".reference-links",
 ].join(",");
-const ANCILLARY_HEADING = /^(references?|bibliography|literature cited|works cited|reference list|endnotes?|footnotes?|CRediT authorship contribution statement|author contributions?|declaration of competing interest|competing interests?|conflict of interest statement|acknowledg(?:e)?ments?|funding|data availability|availability of data and materials|supplementary materials?|ethics declarations?|author information)$/i;
+const ANCILLARY_HEADING = /^(references?|bibliography|literature cited|works cited|reference list|CRediT authorship contribution statement|author contributions?|declaration of competing interest|competing interests?|conflict of interest statement|acknowledg(?:e)?ments?|funding|data availability|availability of data and materials|supplementary materials?|ethics declarations?|author information)$/i;
 const CAPTION_SELECTOR = "figcaption, caption, .fig-caption, .figure-caption, .figure__caption, .figcaption, .NLM_caption, .ltx_caption, .graphic_title, .caption, .captions";
 const LEAF_SELECTOR = [
   "p", "[role='paragraph']", ".NLM_p", ".Para", ".paragraph-element", ".section-paragraph",
@@ -72,16 +61,38 @@ function meaningful(text: string): boolean {
 
 interface SourceFilter {
   hidden(element: Element): boolean;
+  ui(element: Element): boolean;
   ancillary(element: Element): boolean;
   excluded(element: Element): boolean;
 }
 
-function sourceFilter(): SourceFilter {
+function sourceFilter(ownership?: ArticleOwnership): SourceFilter {
   const hiddenCache = new WeakMap<Element, boolean>();
+  const uiCache = new WeakMap<Element, boolean>();
   const ancillaryCache = new WeakMap<Element, boolean>();
   const excludedCache = new WeakMap<Element, boolean>();
   const directHeadings = new WeakMap<Element, Element | null>();
   const precedingHeadings = new WeakMap<Element, Element | null>();
+  const articleLandmark = (element: Element): boolean => {
+    if (ownership && !isOwned(element, ownership)) return false;
+    const article = element.closest("article");
+    if (article && (!ownership || isOwned(article, ownership))) return true;
+    const body = element.closest(`${CONTENT_ROOT_SELECTOR},${FRONTIERS_CONTENT_SELECTOR}`);
+    if (body && (!ownership || isOwned(body, ownership))) return true;
+    if (ownership) {
+      // A narrow selected story/body root can own its landmarks; a broad main
+      // also contains unrelated site chrome, so only its current title header
+      // is evidence of ownership.
+      if (ownership.roots.some((root) => !root.matches("main, [role='main']") && root.contains(element))) return true;
+      return Boolean(element.matches("header, [role='banner']") && ownership.title && element.contains(ownership.title));
+    }
+    // Root discovery cannot depend on ownership that has not been selected
+    // yet. Admit title-bearing main headers, using the declared article title
+    // when available, and classify them again with a fresh bounded filter.
+    if (!element.matches("header, [role='banner']") || !element.closest("main, [role='main']")) return false;
+    const title = normalizeTitle(document.querySelector("meta[name='citation_title']")?.getAttribute("content") ?? "");
+    return [...element.querySelectorAll("h1")].some((heading) => !title || normalizeTitle(heading.textContent ?? "") === title);
+  };
   const precedingHeading = (element: Element): Element | null => {
     const skipped = [element];
     let heading: Element | null = null;
@@ -110,13 +121,23 @@ function sourceFilter(): SourceFilter {
   };
   const filter: SourceFilter = {
     hidden: (element) => isSourceHidden(element, hiddenCache),
+    ui: (element) => {
+      if (!uiCache.has(element)) {
+        let excluded = Boolean(element.closest(UI_SELECTOR));
+        for (let current = element.closest(LANDMARK_SELECTOR); current && !excluded; current = current.parentElement?.closest(LANDMARK_SELECTOR) ?? null) {
+          excluded = !articleLandmark(current);
+        }
+        uiCache.set(element, excluded);
+      }
+      return uiCache.get(element)!;
+    },
     ancillary: (element) => {
       if (!ancillaryCache.has(element)) ancillaryCache.set(element, classifyAncillary(element));
       return ancillaryCache.get(element)!;
     },
     excluded: (element) => {
       if (!excludedCache.has(element)) excludedCache.set(element, filter.hidden(element) ||
-        Boolean(element.closest(`${UI_SELECTOR},${GATE_SELECTOR},${LOADING_SELECTOR},${NON_TEXT_SELECTOR}`)) || filter.ancillary(element));
+        filter.ui(element) || Boolean(element.closest(`${GATE_SELECTOR},${LOADING_SELECTOR},${NON_TEXT_SELECTOR}`)) || filter.ancillary(element));
       return excludedCache.get(element)!;
     },
   };
@@ -201,6 +222,7 @@ interface ArticleOwnership {
   end: number;
   context: Element | null;
   ignoredArticles: ReadonlySet<Element>;
+  title: Element | null;
 }
 
 function articleOwnership(roots: Element[], filter: SourceFilter): ArticleOwnership {
@@ -229,7 +251,8 @@ function articleOwnership(roots: Element[], filter: SourceFilter): ArticleOwners
     (!roots.some((root) => root.contains(element)) || first?.matches("main, [role='main']")));
   const nextArticle = context && [...context.querySelectorAll("article")].find((element) => !excluded(element) &&
     !roots.some((root) => root === element || root.contains(element)) && (order.get(element) ?? 0) > (order.get(first) ?? 0));
-  return { roots, order, context, ignoredArticles, end: Math.min(nextTitle ? order.get(nextTitle)! : Infinity, nextArticle ? order.get(nextArticle)! : Infinity) };
+  return { roots, order, context, ignoredArticles, title: ownTitle ?? null,
+    end: Math.min(nextTitle ? order.get(nextTitle)! : Infinity, nextArticle ? order.get(nextArticle)! : Infinity) };
 }
 
 function coveredBy(node: Node, accepted: ReadonlySet<Element>): boolean {
@@ -274,9 +297,12 @@ function reconcileText(ownership: ArticleOwnership, initial: HTMLElement[], reas
       reasons.add("unrepresented-article-text");
       continue;
     }
-    const anchor = parent.closest("div, li, dd, blockquote, figcaption, section, article, main, header") ?? parent;
+    const anchor = parent.closest("div, li, dd, blockquote, figcaption, section, article, main, header, footer") ?? parent;
     const hasAcceptedDescendant = acceptedAncestors.has(anchor);
-    const hasExcludedText = !hasAcceptedDescendant && Array.from(anchor.querySelectorAll("*")).some((element) => excluded(element) && meaningful(element.textContent ?? ""));
+    // Known UI is also stripped by the serializer, so it cannot contaminate
+    // recovered prose. Gates and ancillary exclusions still block recovery.
+    const hasExcludedText = !hasAcceptedDescendant && Array.from(anchor.querySelectorAll("*")).some((element) =>
+      excluded(element) && !element.closest(UI_SELECTOR) && meaningful(element.textContent ?? ""));
     if (isOwned(anchor, ownership) && !hasAcceptedDescendant && !hasExcludedText && !anchor.querySelector(HEADING_SELECTOR)) {
       accepted.add(anchor);
       rememberAncestors(anchor);
@@ -333,19 +359,20 @@ export function collectReadingDocument(options: ReadingDocumentOptions = {}): Re
     return { kind: readingKind(), sections: [], scope: { paragraphCount: 0, sectionCount: 0, captionCount: 0,
       tableCount: 0, partial: true, reasons: ["extraction-limit"] } };
   }
-  const filter = sourceFilter();
-  const { hidden, ancillary, excluded } = filter;
+  const discoveryFilter = sourceFilter();
   const seeds = collectParagraphs({ includeTranslatedParagraphs: true });
-  const roots = rootsForArticle(seeds, filter);
-  const ownership = articleOwnership(roots, filter);
+  const roots = rootsForArticle(seeds, discoveryFilter);
+  const ownership = articleOwnership(roots, discoveryFilter);
+  const filter = sourceFilter(ownership);
+  const { hidden, ancillary, excluded } = filter;
   const reasons = new Set<string>();
   if (isFrontiersAbstractOnly(roots, filter)) reasons.add("abstract-only");
-  const visibleSourceSignal = (element: Element) => isOwned(element, ownership) && !hidden(element) && !element.closest(UI_SELECTOR);
+  const visibleSourceSignal = (element: Element) => isOwned(element, ownership) && !hidden(element) && !filter.ui(element);
   const allOwned = (selector: string) => roots.some((root) => (root.matches(selector) && visibleSourceSignal(root)) ||
     [...root.querySelectorAll(selector)].some(visibleSourceSignal));
   const contextSignal = (selector: string) => Boolean(ownership.context && [...ownership.context.querySelectorAll(selector)].some((element) => {
     const article = element.closest("article");
-    return !hidden(element) && !element.closest(UI_SELECTOR) && (ownership.order.get(element) ?? Infinity) < ownership.end &&
+    return !hidden(element) && !filter.ui(element) && (ownership.order.get(element) ?? Infinity) < ownership.end &&
       (!article || isOwned(article, ownership));
   }));
   if (allOwned(GATE_SELECTOR) || contextSignal(GATE_SELECTOR) || (roots.length === 0 && [...document.querySelectorAll(GATE_SELECTOR)].some((element) => !hidden(element)))) reasons.add("access-restricted");

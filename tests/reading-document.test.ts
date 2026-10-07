@@ -31,6 +31,153 @@ test("reading document keeps a short standfirst, conclusion, list item and quota
     });
 });
 
+for (const footer of ["footer", 'div role="contentinfo"']) {
+  const tag = footer.split(" ")[0];
+  test(`article-owned ${footer} keeps scientific prose while page chrome stays excluded`, () => {
+    withDom(`<header role="banner"><h1>Publisher</h1><p id="site-head">Browse our publication subscriptions.</p></header>
+      <article><header role="banner"><h1>Device study</h1><p id="lead">The response is stable.</p></header>
+        <p id="body">Repeated measurements used identical pulse sequences.</p>
+        <${footer}><h2>Conclusions</h2><p id="conclusion">The effect disappeared after cooling.</p>
+          <p id="note">Measurements were taken at 0.2 V.</p>
+          <nav><p id="share">Share this article with your contacts.</p></nav>
+          <form><p id="subscribe">Subscribe to our weekly updates.</p></form>
+          <div class="copyright"><p id="rights">All rights reserved by the publisher.</p></div>
+          <aside class="related-content"><p id="related">Read an unrelated story.</p></aside>
+        </${tag}>
+      </article><footer><p id="site-foot">Visit our corporate policies and partner publications.</p></footer>`, "www.nature.com", () => {
+      const before = document.documentElement.outerHTML;
+      const reading = collectReadingDocument();
+      const anchors = reading.sections.flatMap((section) => section.paragraphs);
+      assert.deepEqual(anchors.map((node) => node.id), ["lead", "body", "conclusion", "note"]);
+      assert.equal(reading.scope.partial, false);
+      assert.equal(document.documentElement.outerHTML, before);
+      for (const anchor of anchors) assert.strictEqual(anchor, document.getElementById(anchor.id));
+    });
+  });
+}
+
+test("a publisher masthead inside main cannot replace the current article header", () => {
+  withDom(`<main><header class="site-header" role="banner"><h1>Publisher</h1><p id="masthead">Explore our publication services.</p></header>
+    <header class="article-header" role="banner"><h1>Device study</h1><p id="lead">The response is stable.</p></header>
+    <article><p id="body">The same devices were measured after cooling.</p>
+      <footer role="contentinfo"><p id="conclusion">The response returned to its original state.</p></footer></article>
+    <footer role="contentinfo"><p id="site-foot">Visit our legal policies and partner publications.</p></footer></main>`, "journal.example", () => {
+    const meta = document.createElement("meta");
+    meta.setAttribute("name", "citation_title");
+    meta.setAttribute("content", "Device study");
+    document.head.appendChild(meta);
+    const reading = collectReadingDocument();
+    assert.deepEqual(reading.sections.flatMap((section) => section.paragraphs.map((node) => node.id)), ["lead", "body", "conclusion"]);
+    assert.equal(reading.scope.partial, false);
+  });
+});
+
+for (const footer of ["footer", 'div role="contentinfo"']) {
+  const tag = footer.split(" ")[0];
+  for (const inline of [false, true]) {
+    test(`owned ${footer} recovers ${inline ? "inline-wrapped" : "direct"} scientific text without a paragraph`, () => {
+      const note = "Measurements were taken at 0.2 V.";
+      withDom(`<article><h1>Device study</h1><p id="body">Devices were measured after cooling.</p>
+        <${footer} id="note">${inline ? `<span>${note}</span>` : note}</${tag}></article>`, "journal.example", () => {
+        const before = document.documentElement.outerHTML;
+        const reading = collectReadingDocument();
+        const anchors = reading.sections.flatMap((section) => section.paragraphs);
+        assert.deepEqual(anchors.map(extractParagraphText), ["Devices were measured after cooling.", note]);
+        assert.strictEqual(anchors[1], document.getElementById("note"));
+        assert.equal(reading.scope.partial, false);
+        assert.equal(document.documentElement.outerHTML, before);
+      });
+    });
+  }
+}
+
+test("owned footer paragraph and table text omit inline copyright and related controls", () => {
+  withDom(`<article><h1>Device study</h1><p id="body">Devices were measured after cooling.</p>
+    <footer><p id="note">Measurements were taken at 0.2 V. <span class="copyright">All rights reserved.</span>
+      <span class="related-content">Read a different article.</span><span class="article-meta">Published by the journal.</span></p>
+      <table id="measurements"><thead><tr><th>Device</th><th>TER (%)</th></tr></thead>
+        <tbody><tr><th scope="row">A</th><td>120</td></tr></tbody>
+        <tfoot><tr><td colspan="2">Values measured at 0.2 V. <span class="copyright">All rights reserved.</span>
+          <span class="related-articles">Read a different article.</span></td></tr></tfoot></table>
+    </footer></article>`, "journal.example", () => {
+    const before = document.documentElement.outerHTML;
+    const reading = collectReadingDocument();
+    const anchors = reading.sections.flatMap((section) => section.paragraphs);
+    assert.deepEqual(anchors.map((node) => node.id), ["body", "note", "measurements"]);
+    assert.equal(extractParagraphText(anchors[1]), "Measurements were taken at 0.2 V.");
+    assert.equal(extractParagraphText(anchors[2]), "Device | TER (%)\nA | TER (%): 120\nValues measured at 0.2 V.");
+    assert.equal(reading.scope.partial, false);
+    assert.equal(document.documentElement.outerHTML, before);
+  });
+});
+
+test("direct scientific footer text can be recovered beside excluded inline controls", () => {
+  withDom(`<article><h1>Device study</h1><p id="body">Devices were measured after cooling.</p>
+    <footer id="note">Measurements were taken at 0.2 V. <span class="copyright">All rights reserved.</span>
+      <span class="related-content">Read a different article.</span></footer></article>`, "journal.example", () => {
+    const before = document.documentElement.outerHTML;
+    const reading = collectReadingDocument();
+    const anchors = reading.sections.flatMap((section) => section.paragraphs);
+    assert.deepEqual(anchors.map(extractParagraphText), ["Devices were measured after cooling.", "Measurements were taken at 0.2 V."]);
+    assert.strictEqual(anchors[1], document.getElementById("note"));
+    assert.equal(reading.scope.partial, false);
+    assert.equal(document.documentElement.outerHTML, before);
+  });
+});
+
+test("publisher body footer is owned while an unrelated footer under main is not", () => {
+  withDom(`<main><header><h1>Cooling cities</h1><p id="lead">Shade saves lives.</p></header>
+    <div itemprop="articleBody"><p id="body">The street temperatures were measured at noon.</p>
+      <footer><h2>Conclusions</h2><p id="conclusion">Trees lowered the measured temperature.</p></footer></div>
+    <footer><p id="site-foot">Explore our corporate history and subscription packages.</p></footer>
+    </main>`, "news.example", () => {
+    const reading = collectReadingDocument();
+    assert.deepEqual(reading.sections.flatMap((section) => section.paragraphs.map((node) => node.id)), ["lead", "body", "conclusion"]);
+    assert.equal(reading.scope.partial, false);
+  });
+});
+
+test("later article header and footer remain outside the current reading scope", () => {
+  withDom(`<main><article><header><h1>Current story</h1><p id="lead">Rain increased.</p></header>
+    <p id="body">The readings were compared across three years.</p><footer><p id="note">Only summer measurements were compared.</p></footer></article>
+    <article><header><h1>Next story</h1><p id="next-lead">An unrelated story begins.</p></header>
+      <p id="next-body">Unrelated financial news.</p><footer><p id="next-note">Notes for the unrelated story.</p></footer></article></main>`, "news.example", () => {
+    const reading = collectReadingDocument();
+    assert.deepEqual(reading.sections.flatMap((section) => section.paragraphs.map((node) => node.id)), ["lead", "body", "note"]);
+    assert.equal(reading.scope.partial, false);
+  });
+});
+
+for (const heading of ["Footnotes", "Endnotes"]) {
+  test(`${heading} can contain scientific conditions without admitting references or funding`, () => {
+    withDom(`<article><h1>Device study</h1><p id="body">The current was measured after each pulse.</p>
+      <footer><section role="doc-endnotes"><h2>${heading}</h2><p id="condition">Reported currents were normalized to device area.</p></section>
+        <section><h2>Funding</h2><p id="funding">The study was supported by the research council.</p></section>
+        <section role="doc-bibliography"><h2>References</h2><p id="reference">A cited publication and its bibliographic details.</p></section>
+      </footer></article>`, "pubs.acs.org", () => {
+      const reading = collectReadingDocument();
+      assert.deepEqual(reading.sections.flatMap((section) => section.paragraphs.map((node) => node.id)), ["body", "condition"]);
+      assert.equal(reading.scope.partial, false);
+      assert.ok(reading.scope.reasons.includes("ancillary-content-excluded"));
+    });
+  });
+}
+
+test("a table inside the article footer keeps column headers and scientific tfoot conditions once", () => {
+  withDom(`<article><h1>Device study</h1><p id="body">Devices were compared at the same read voltage.</p>
+    <footer><table id="measurements"><caption>Measurements</caption><thead><tr><th>Device</th><th>TER (%)</th></tr></thead>
+      <tbody><tr><th scope="row">A</th><td>120<button>Copy</button></td></tr><tr hidden><th>A-copy</th><td>999</td></tr></tbody>
+      <tfoot><tr><td colspan="2">Values measured at 0.2 V.</td></tr></tfoot></table></footer></article>`, "journal.example", () => {
+    const reading = collectReadingDocument();
+    const anchors = reading.sections.flatMap((section) => section.paragraphs);
+    assert.deepEqual(anchors.map((node) => node.id), ["body", "measurements"]);
+    assert.equal(reading.scope.tableCount, 1);
+    assert.equal(reading.scope.captionCount, 1);
+    assert.equal(reading.scope.partial, false);
+    assert.equal(extractParagraphText(anchors[1]), "Measurements\nDevice | TER (%)\nA | TER (%): 120\nValues measured at 0.2 V.");
+  });
+});
+
 test("reading document captures ScienceDirect figures and scientific appendices", () => {
   withDom(`<article><div id="body"><section id="sec1"><h2>Results</h2>
       <div id="p1">The switching experiment used the same pulse sequence on every available device.</div>

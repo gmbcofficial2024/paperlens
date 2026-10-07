@@ -3,7 +3,21 @@ export function extractParagraphText(el: HTMLElement): string {
   return visibleText(el).trim();
 }
 
-const NON_SOURCE_TEXT_SELECTOR = "script, style, template, noscript, button, dialog, nav, form, [role='button'], [role='dialog'], .paperlens-translation, .paperlens-summary, [data-paperlens-ui]";
+// Unconditional UI exclusions are shared by collection and serialization.
+// Header/footer landmarks need article ownership and are classified separately.
+export const SOURCE_UI_SELECTOR = [
+  "nav", "form", "button", "dialog", "[role='navigation']", "[role='dialog']", "[role='button']",
+  ".site-header", ".site-footer", "#site-header", "#site-footer",
+  ".paperlens-translation", ".paperlens-summary", "[data-paperlens-ui]",
+  ".sidebar", ".comments", ".cookie", ".modal", ".popup", ".tooltip",
+  ".advertisement", ".ad-container", ".related-content", ".related-articles",
+  ".recommended-articles", ".RelatedArticles", ".collateral", ".embedded-form",
+  ".author-info", ".author-group", ".AuthorGroups", ".contrib-group", ".affiliations",
+  ".byline", ".article-meta", ".metrics", ".article-metrics", ".keywords", ".copyright", ".license",
+  ".fig-modal", "figshare-widget", "[class*='figshare']", ".sticky-table-of-contents",
+  "#reading-assistant-container", "#issue-navigation",
+].join(",");
+const NON_SOURCE_TEXT_SELECTOR = `script, style, template, noscript, ${SOURCE_UI_SELECTOR}`;
 
 export function isSourceHidden(element: Element, cache = new WeakMap<Element, boolean>()): boolean {
   const chain: Element[] = [];

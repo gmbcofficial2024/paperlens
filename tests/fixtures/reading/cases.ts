@@ -35,7 +35,9 @@ export const READING_FIXTURES: ReadingFixture[] = layouts.flatMap((layout) => {
   const tag = layout.paragraph.split(" ")[0];
   const prose = (id: string, text: string) => `<${layout.paragraph} id="${id}">${text}</${tag}>`;
   const header = '<header><h1>Device stability study</h1><p id="lead">No drift.</p></header>';
-  const loaded = `${layout.start}${header}<section><h2>Results</h2>
+  const siteHeader = '<header role="banner"><p id="site-header">Browse subscriptions and publication services.</p></header>';
+  const siteFooter = '<footer role="contentinfo"><p id="site-footer">Visit our corporate policies and partner publications.</p></footer>';
+  const loaded = `${siteHeader}${layout.start}${header}<section><h2>Results</h2>
     ${prose("passage", "Independent measurements showed stable switching across the tested devices.")}
     ${prose("short", "The effect disappeared.")}
     <ul><li id="list">Use short pulses.</li></ul><blockquote id="quote">Repeat the test.</blockquote>
@@ -43,12 +45,14 @@ export const READING_FIXTURES: ReadingFixture[] = layouts.flatMap((layout) => {
     <table id="table"><caption>Table 1. Measurements</caption><thead><tr><th>Device</th><th>TER (%)</th></tr></thead>
       <tbody><tr><th scope="row">A</th><td>120</td></tr></tbody></table>
     </section><section class="Appendices"><h2>Appendix A. Methods</h2>${prose("appendix", "Pulse width: 10 ns.")}</section>
+    <footer role="contentinfo"><h2>Conclusions</h2>${prose("footer-conclusion", "The response recovered after cooling.")}
+      <section role="doc-endnotes"><h3>Footnotes</h3>${prose("scientific-note", "Reported currents were normalized to device area.")}</section></footer>
     <section id="references"><h2>References</h2><p id="reference">A bibliographic citation appears here.</p></section>
     <aside class="related-content"><p id="related">An unrelated article is recommended here.</p></aside>
-    ${layout.end}`;
+    ${layout.end}${siteFooter}`;
   return [
-    { name: layout.name, host: layout.host, sourceLayout: `Constructed ${layout.name} fragmented/caption/table/appendix layout`, accessState: "loaded" as const,
-      html: loaded, expectedIds: ["lead", "passage", "short", "list", "quote", "caption", "table", "appendix"] },
+    { name: layout.name, host: layout.host, sourceLayout: `Constructed ${layout.name} fragmented/caption/table/appendix/footer layout`, accessState: "loaded" as const,
+      html: loaded, expectedIds: ["lead", "passage", "short", "list", "quote", "caption", "table", "appendix", "footer-conclusion", "scientific-note"] },
     { name: `${layout.name} restricted`, host: layout.host, sourceLayout: `Constructed ${layout.name} abstract with access gate`, accessState: "restricted" as const,
       html: `${layout.start}${header}<div class="paywall"><p id="gate">Sign in to read the complete article.</p></div>${layout.end}`, expectedIds: ["lead"] },
   ];
