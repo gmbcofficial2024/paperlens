@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.7
+
+- Exclude the reported Nature magazine header, including its teaser, publication identifiers, date, byline and author-popup content, from translation and summary source.
+- Retain its title for document identity and article-boundary discovery. Strip the header even when an accepted source wrapper also contains body text.
+- Preserve scientific article introductions, body passages and footer conditions, and verify both provider payloads without altering original source nodes.
+
 ## 1.1.6
 
 - Refresh OpenAI choices to GPT-6 Astra, GPT-6.1 Sol and GPT-6 Luna; use compatible reasoning and sampling options for each model.

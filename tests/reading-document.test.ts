@@ -4,6 +4,7 @@ import { parseHTML } from "linkedom";
 import { collectReadingDocument } from "../src/content/reading-document";
 import { extractParagraphText } from "../src/content/text-extraction";
 import { READING_FIXTURES } from "./fixtures/reading/cases";
+import { NATURE_MAGAZINE_HEADER } from "./fixtures/reading/nature-magazine-header";
 
 function withDom(html: string, hostname: string, run: () => void): void {
   const parsed = parseHTML(`<html><head><title>Reading fixture</title></head><body>${html}</body></html>`);
@@ -69,6 +70,71 @@ test("a publisher masthead inside main cannot replace the current article header
     const reading = collectReadingDocument();
     assert.deepEqual(reading.sections.flatMap((section) => section.paragraphs.map((node) => node.id)), ["lead", "body", "conclusion"]);
     assert.equal(reading.scope.partial, false);
+  });
+});
+
+test("reported Nature magazine header does not admit publication identifiers or author popup prose", () => {
+  withDom(`<main><article>${NATURE_MAGAZINE_HEADER}
+    <div class="c-article-body"><p id="body">The same devices retained their switching response.</p></div>
+    <footer><p id="condition">Measurements were taken at 0.2 V.</p></footer></article></main>`, "www.nature.com", () => {
+    const before = document.documentElement.outerHTML;
+    const reading = collectReadingDocument();
+    const anchors = reading.sections.flatMap((section) => section.paragraphs);
+    const payload = anchors.map(extractParagraphText).join("\n");
+    for (const text of ["FUTURES", "02 October 2026", "Example Writer", "The author writes", "Author website", "View author publications", "Search author on", "PubMed", "Google Scholar"]) {
+      assert.equal(payload.includes(text), false, `Header metadata entered source: ${text}`);
+    }
+    assert.ok(anchors.includes(document.getElementById("body")!));
+    assert.ok(anchors.includes(document.getElementById("condition")!));
+    assert.equal(reading.scope.partial, false);
+    assert.equal(document.documentElement.outerHTML, before);
+  });
+});
+
+for (const headerInsideArticle of [true, false]) {
+  test(`reported Nature magazine header ${headerInsideArticle ? "inside" : "before"} the article is excluded without losing its body boundary`, () => {
+    const currentArticle = `<article>${headerInsideArticle ? NATURE_MAGAZINE_HEADER : ""}
+      <div class="c-article-body"><p id="body">The same devices retained their switching response.</p></div>
+      <footer><p id="condition">Measurements were taken at 0.2 V.</p></footer></article>`;
+    withDom(`<main>${headerInsideArticle ? "" : NATURE_MAGAZINE_HEADER}${currentArticle}
+      <article><header><h1>A different story</h1></header><p id="next-story">Unrelated events in another city.</p></article></main>`, "www.nature.com", () => {
+      const meta = document.createElement("meta");
+      meta.setAttribute("name", "citation_title");
+      meta.setAttribute("content", "Von Neumann's party");
+      document.head.appendChild(meta);
+      const before = document.documentElement.outerHTML;
+      const reading = collectReadingDocument();
+      const anchors = reading.sections.flatMap((section) => section.paragraphs);
+      assert.deepEqual(anchors.map((node) => node.id), ["body", "condition"]);
+      assert.equal(reading.scope.partial, false);
+      assert.equal(document.documentElement.outerHTML, before);
+      assert.equal(document.querySelector("h1")?.textContent, "Von Neumann's party");
+      for (const anchor of anchors) assert.strictEqual(anchor, document.getElementById(anchor.id));
+    });
+  });
+}
+
+test("Nature scientific article header lead remains source while its publication metadata is excluded", () => {
+  const scientificHeader = NATURE_MAGAZINE_HEADER.replace('class="c-article-magazine-title"', 'class="c-article-title"');
+  withDom(`<main><article>${scientificHeader}<div class="c-article-body"><p id="body">Devices were measured after cooling.</p></div>
+    <footer><p id="condition">Measurements were taken at 0.2 V.</p></footer></article></main>`, "www.nature.com", () => {
+    const reading = collectReadingDocument();
+    assert.deepEqual(reading.sections.flatMap((section) => section.paragraphs.map((node) => node.id)), ["reported-teaser", "body", "condition"]);
+    assert.equal(reading.scope.partial, false);
+  });
+});
+
+test("an aggregate source anchor strips the Nature magazine header while keeping its body text", () => {
+  withDom(`<article><div class="paragraph-element" id="aggregate">${NATURE_MAGAZINE_HEADER}
+    <span id="inline-body">The same devices retained their switching response.</span></div>
+    <footer><p id="condition">Measurements were taken at 0.2 V.</p></footer></article>`, "www.nature.com", () => {
+    const before = document.documentElement.outerHTML;
+    const reading = collectReadingDocument();
+    const anchors = reading.sections.flatMap((section) => section.paragraphs);
+    assert.deepEqual(anchors.map(extractParagraphText), ["The same devices retained their switching response.", "Measurements were taken at 0.2 V."]);
+    assert.equal(reading.scope.partial, false);
+    assert.equal(document.documentElement.outerHTML, before);
+    assert.strictEqual(anchors[0], document.getElementById("aggregate"));
   });
 });
 

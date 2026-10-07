@@ -13,11 +13,19 @@ export const SOURCE_UI_SELECTOR = [
   ".advertisement", ".ad-container", ".related-content", ".related-articles",
   ".recommended-articles", ".RelatedArticles", ".collateral", ".embedded-form",
   ".author-info", ".author-group", ".AuthorGroups", ".contrib-group", ".affiliations",
+  ".c-article-identifiers", "[data-test='article-identifier']",
+  ".c-article-author-list-container", ".c-article-author-list", "[data-test='authors-list']",
+  ".c-article-authors-listing", "[data-test='author-info']",
   ".byline", ".article-meta", ".metrics", ".article-metrics", ".keywords", ".copyright", ".license",
   ".fig-modal", "figshare-widget", "[class*='figshare']", ".sticky-table-of-contents",
   "#reading-assistant-container", "#issue-navigation",
 ].join(",");
 const NON_SOURCE_TEXT_SELECTOR = `script, style, template, noscript, ${SOURCE_UI_SELECTOR}`;
+
+export function isMagazineArticleHeader(element: Element): boolean {
+  return element.matches("header") && [...element.querySelectorAll("h1.c-article-magazine-title")]
+    .some((title) => title.closest("header") === element);
+}
 
 export function isSourceHidden(element: Element, cache = new WeakMap<Element, boolean>()): boolean {
   const chain: Element[] = [];
@@ -44,7 +52,7 @@ export function isSourceHidden(element: Element, cache = new WeakMap<Element, bo
 function excludedText(element: Element): boolean {
   if (isSourceHidden(element)) return true;
   for (let current: Element | null = element; current; current = current.parentElement) {
-    if (current.matches(NON_SOURCE_TEXT_SELECTOR)) return true;
+    if (current.matches(NON_SOURCE_TEXT_SELECTOR) || isMagazineArticleHeader(current)) return true;
   }
   return false;
 }

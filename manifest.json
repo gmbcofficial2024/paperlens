@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PaperLens",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "description": "Read papers and articles with inline Korean translations and structured summaries using your own LLM API keys.",
   "permissions": [
     "storage",

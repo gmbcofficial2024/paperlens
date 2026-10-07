@@ -1,5 +1,5 @@
 import { collectParagraphs, type Section } from "./dom-parser";
-import { isSourceHidden, SOURCE_UI_SELECTOR as UI_SELECTOR } from "./text-extraction";
+import { isMagazineArticleHeader, isSourceHidden, SOURCE_UI_SELECTOR as UI_SELECTOR } from "./text-extraction";
 
 export interface ReadingScope {
   paragraphCount: number;
@@ -75,6 +75,9 @@ function sourceFilter(ownership?: ArticleOwnership): SourceFilter {
   const precedingHeadings = new WeakMap<Element, Element | null>();
   const articleLandmark = (element: Element): boolean => {
     if (ownership && !isOwned(element, ownership)) return false;
+    // Keep the magazine title available during discovery, but omit its full
+    // reported header (including the teaser) from the accepted provider source.
+    if (ownership && isMagazineArticleHeader(element)) return false;
     const article = element.closest("article");
     if (article && (!ownership || isOwned(article, ownership))) return true;
     const body = element.closest(`${CONTENT_ROOT_SELECTOR},${FRONTIERS_CONTENT_SELECTOR}`);

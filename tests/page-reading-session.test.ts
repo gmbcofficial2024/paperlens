@@ -12,6 +12,7 @@ import type {
   sendRuntimeMessage,
 } from "../src/shared/messages";
 import type { ExtensionSettings } from "../src/shared/types";
+import { NATURE_MAGAZINE_HEADER } from "./fixtures/reading/nature-magazine-header";
 
 type Listener = (...args: never[]) => void;
 
@@ -413,6 +414,82 @@ test("reading session preserves article header and scientific footer in both pro
       assert.strictEqual(document.getElementById(original.node.id), original.node);
       assert.equal(original.node.outerHTML, original.outerHTML);
     }
+  } finally {
+    harness.runtime.summaryCalls.forEach((call) => call.respond({ ok: false, error: "cleanup" }));
+    harness.restore();
+  }
+});
+
+test("Nature magazine header stays out of both provider payloads while title and original scientific nodes survive", async () => {
+  const harness = createHarness(settings(false));
+  try {
+    location.hostname = "www.nature.com";
+    document.head.innerHTML = "<title>Von Neumann's party | Nature</title>";
+    document.body.innerHTML = `<main><article>${NATURE_MAGAZINE_HEADER}
+      <div class="c-article-body"><p id="scientific-body">The same devices retained their <em id="scientific-term">switching response</em> after repeated pulses.</p></div>
+      <footer><p id="scientific-footer">Measurements were taken at 0.2 V.</p></footer></article></main>`;
+    const header = document.getElementById("reported-header")!;
+    const headerHTML = header.outerHTML;
+    const title = header.querySelector("h1")!;
+    const scientificTerm = document.getElementById("scientific-term")!;
+    const originals = ["scientific-body", "scientific-footer"].map((id) => {
+      const node = document.getElementById(id)!;
+      return { node, innerHTML: node.innerHTML, outerHTML: node.outerHTML, children: [...node.childNodes] };
+    });
+    const expectedTexts = originals.map(({ node }) => node.textContent!);
+
+    const summary = harness.session.summarize();
+    await waitFor(() => harness.runtime.summaryCalls.length === 1, "Nature magazine summary request");
+    const summaryRequest = harness.runtime.summaryCalls[0].request;
+    harness.runtime.summaryCalls[0].respond({ ok: true, result: { summary: "Scientific source summary" } });
+    await summary;
+
+    const translation = harness.session.toggleTranslation();
+    let translationFinished = false;
+    void translation.then(
+      () => { translationFinished = true; },
+      () => { translationFinished = true; },
+    );
+    const translatedTexts: string[] = [];
+    let portIndex = 0;
+    while (!translationFinished) {
+      await waitFor(
+        () => translationFinished || harness.runtime.ports[portIndex]?.postedMessages.length === 1,
+        "Nature magazine translation request",
+      );
+      if (translationFinished) break;
+      const port = harness.runtime.ports[portIndex++];
+      const request = port.postedMessages[0] as { paragraphTexts: string[] };
+      translatedTexts.push(...request.paragraphTexts);
+      port.emitMessage({
+        type: "stream-section-done",
+        paragraphs: request.paragraphTexts.map((text) => ({ translation: `Translated: ${text}`, alignment: [] })),
+      });
+    }
+    await translation;
+
+    assert.equal(summaryRequest.title, "Von Neumann's party");
+    const headerTexts = ["A tricky question.", "Von Neumann's party", "FUTURES", "02 October 2026", "Example Writer", "The author writes", "Author website", "View author publications", "Search author on", "PubMed", "Google Scholar"];
+    assert.deepEqual({
+      summary: headerTexts.filter((text) => summaryRequest.articleText.includes(text)),
+      translation: headerTexts.filter((text) => translatedTexts.some((paragraph) => paragraph.includes(text))),
+    }, { summary: [], translation: [] }, "Nature magazine header entered provider payloads");
+    assert.deepEqual(translatedTexts, expectedTexts);
+    assert.ok(summaryRequest.articleText.indexOf(expectedTexts[0]) >= 0);
+    assert.ok(summaryRequest.articleText.indexOf(expectedTexts[1]) > summaryRequest.articleText.indexOf(expectedTexts[0]));
+    assert.equal(document.querySelectorAll(".paperlens-translation").length, expectedTexts.length);
+    assert.strictEqual(document.getElementById("reported-header"), header);
+    assert.strictEqual(header.querySelector("h1"), title);
+    assert.equal(header.outerHTML, headerHTML);
+    assert.strictEqual(document.getElementById("scientific-term"), scientificTerm);
+    for (const original of originals) {
+      assert.strictEqual(document.getElementById(original.node.id), original.node);
+      assert.equal(original.node.innerHTML, original.innerHTML);
+      assert.deepEqual([...original.node.childNodes], original.children);
+    }
+    harness.session.reset();
+    for (const original of originals) assert.equal(original.node.outerHTML, original.outerHTML);
+    assert.equal(header.outerHTML, headerHTML);
   } finally {
     harness.runtime.summaryCalls.forEach((call) => call.respond({ ok: false, error: "cleanup" }));
     harness.restore();
