@@ -13,6 +13,7 @@ import {
   DEFAULT_CLAUDE_SUMMARY_MODEL,
   DEFAULT_CODEX_SUMMARY_MODEL,
   DEFAULT_SUMMARY_PROMPT,
+  LEGACY_DEFAULT_SUMMARY_PROMPTS,
 } from "./summary-prompts";
 import { normalizeOptionalVertexModel } from "./vertex";
 
@@ -135,6 +136,7 @@ function mergeSummarySettings(defaults: SummarySettings, rawSummary: unknown): S
     openaiModel: normalizeFixedModel("openai", raw.openaiModel, OPENAI_MODEL_MIGRATIONS),
     anthropicModel: normalizeFixedModel("anthropic", raw.anthropicModel, ANTHROPIC_MODEL_MIGRATIONS),
     prompt: typeof raw.prompt === "string" && raw.prompt.trim()
+      && !LEGACY_DEFAULT_SUMMARY_PROMPTS.includes(raw.prompt.trim())
       ? raw.prompt
       : defaults.prompt,
   };
