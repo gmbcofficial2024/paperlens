@@ -1,3 +1,5 @@
+import type { FontFamilyPreset, FontScale } from "./typography";
+
 export const PROVIDER_IDS = ["gemini", "vertex", "openai", "anthropic", "custom"] as const;
 export type ProviderId = (typeof PROVIDER_IDS)[number];
 export const SUMMARY_PROVIDER_IDS = ["codex", "claude", "gemini", "vertex", "openai", "anthropic"] as const;
@@ -18,6 +20,9 @@ export interface ExtensionSettings {
   maxConcurrency: number;
   customPrompt: string;
   glossary?: string;
+  fontFamily?: FontFamilyPreset;
+  customFontFamily?: string;
+  fontScale?: FontScale;
   summary: SummarySettings;
 }
 

@@ -24,7 +24,7 @@ import {
   type RetryScheduler,
   type TranslationSessionStatus,
 } from "./translation-session";
-import { addUsage, setWidgetSummaryState } from "./token-widget";
+import { addUsage, applyReadingTypography, setWidgetSummaryState } from "./token-widget";
 
 export interface PageReadingStatus extends TranslationSessionStatus {
   hasSummary: boolean;
@@ -161,6 +161,7 @@ export function createPageReadingSession(
       }
       if (loadGeneration === summaryGeneration) {
         cachedSettings = response.settings;
+        applyReadingTypography(response.settings);
       }
       return response.settings;
     })();

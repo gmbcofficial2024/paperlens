@@ -1,6 +1,8 @@
 import { sendRuntimeMessage } from "../shared/messages";
 import { shouldResetTranslationForNavigation } from "../shared/navigation";
+import type { ExtensionSettings } from "../shared/types";
 import { createPageReadingSession } from "./page-reading-session";
+import { applyReadingTypography } from "./token-widget";
 
 const pageReadingSession = createPageReadingSession({
   sendRuntimeMessage,
@@ -11,6 +13,18 @@ const pageReadingSession = createPageReadingSession({
 });
 
 window.addEventListener("pagehide", () => pageReadingSession.reset());
+
+if (typeof chrome !== "undefined" && chrome.storage?.onChanged?.addListener) {
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== "local" || !changes.paperlens_settings_v1?.newValue) return;
+    const next = changes.paperlens_settings_v1.newValue as Partial<ExtensionSettings>;
+    applyReadingTypography({
+      fontFamily: next.fontFamily,
+      customFontFamily: next.customFontFamily,
+      fontScale: next.fontScale,
+    });
+  });
+}
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === "paperlens/ping") {

@@ -16,6 +16,7 @@ import {
   removeSummaryBlock,
 } from "../src/content/summary-block";
 import {
+  applyReadingTypography,
   destroyWidget,
   setWidgetFontScale,
   setWidgetReadingMode,
@@ -28,6 +29,7 @@ import { buildSystemPrompt, parseGlossary } from "../src/shared/prompts";
 import { runtimeRequestError, translationConfigurationKey } from "../src/shared/runtime-policy";
 import { defaultSettings, mergeSettings } from "../src/shared/schema";
 import { extractStreamingParagraphTranslations } from "../src/shared/translation-json";
+import { resolveFontFamilyCss, sanitizeCustomFontFamily } from "../src/shared/typography";
 import type { ExtensionSettings } from "../src/shared/types";
 
 type Listener = (...args: never[]) => void;
@@ -561,6 +563,152 @@ test("PageReadingSession reports live status including summary presence and stop
 
     document.querySelector<HTMLButtonElement>(".paperlens-summary-close")!.click();
     assert.equal(session.getStatus().hasSummary, false);
+  } finally {
+    session.reset();
+    restore();
+  }
+});
+
+test("typography sanitizer, CSS resolution, settings merge, and cache key invariance", async () => {
+  assert.equal(sanitizeCustomFontFamily(' "RIDIBatang", 본명조; background:url(evil) '), "RIDIBatang, 본명조 background url evil");
+  assert.equal(sanitizeCustomFontFamily("Pretendard, KoPubWorldBatang"), "Pretendard, KoPubWorldBatang");
+  assert.equal(sanitizeCustomFontFamily("   ;;;{}()  "), undefined);
+
+  assert.equal(resolveFontFamilyCss("default"), undefined);
+  assert.equal(resolveFontFamilyCss("inherit"), "inherit");
+  assert.match(resolveFontFamilyCss("pretendard") ?? "", /"Pretendard"/);
+  assert.match(resolveFontFamilyCss("serif") ?? "", /"Noto Serif KR"/);
+  assert.match(
+    resolveFontFamilyCss("custom", "RIDIBatang, serif") ?? "",
+    /^"RIDIBatang", serif, "Noto Sans KR"/,
+  );
+
+  // Default values are omitted to keep settings snapshots backward-compatible
+  const defaultMerged = mergeSettings({ fontFamily: "default", fontScale: "md", customFontFamily: "RIDIBatang" });
+  assert.equal("fontFamily" in defaultMerged, false);
+  assert.equal("customFontFamily" in defaultMerged, false);
+  assert.equal("fontScale" in defaultMerged, false);
+
+  const styled = mergeSettings({
+    fontFamily: "custom",
+    customFontFamily: '  "RIDIBatang", KoPubWorldBatang  ',
+    fontScale: "lg",
+  });
+  assert.equal(styled.fontFamily, "custom");
+  assert.equal(styled.customFontFamily, "RIDIBatang, KoPubWorldBatang");
+  assert.equal(styled.fontScale, "lg");
+  assert.deepEqual(mergeSettings(styled), styled);
+
+  // Visual font settings must NOT invalidate the translation cache key
+  assert.equal(
+    await translationConfigurationKey(defaultMerged),
+    await translationConfigurationKey(styled),
+  );
+});
+
+test("options page supports font family, custom installed font, font scale, and live preview", async () => {
+  const html = await readFile("options.html", "utf8");
+  const parsed = parseHTML(html);
+  const selectProto = Object.getPrototypeOf(parsed.document.createElement("select")) as object;
+  Object.defineProperty(selectProto, "value", {
+    configurable: true,
+    get(this: HTMLSelectElement): string {
+      return Array.from(this.options).find((o) => o.selected)?.value ?? "";
+    },
+    set(this: HTMLSelectElement, value: string) {
+      Array.from(this.options).forEach((o) => o.removeAttribute("selected"));
+      const selected = Array.from(this.options).find((o) => o.value === value);
+      if (selected) selected.selected = true;
+    },
+  });
+  Object.defineProperty(parsed.window, "setTimeout", { configurable: true, value: () => 0 });
+
+  const initial = defaultSettings();
+  const updates: ExtensionSettings[] = [];
+  const sendMessage = (async (message: RuntimeRequest): Promise<RuntimeResponse> => {
+    if (message.type === "settings/get") return { ok: true, settings: initial };
+    if (message.type === "settings/update") {
+      updates.push(message.settings);
+      return { ok: true, settings: message.settings };
+    }
+    return { ok: true } as RuntimeResponse;
+  }) as typeof import("../src/shared/messages").sendRuntimeMessage;
+
+  const session = createOptionsSettingsEditSession({
+    document: parsed.document as unknown as Document,
+    sendMessage,
+    permissions: {
+      contains: (_p, cb) => cb(true),
+      request: (_p, cb) => cb(true),
+    },
+  });
+  await session.start();
+
+  const doc = parsed.document;
+  const fontFamilyEl = doc.getElementById("font-family") as HTMLSelectElement;
+  const customFontField = doc.getElementById("custom-font-family-field")!;
+  const customFontInput = doc.getElementById("custom-font-family") as HTMLInputElement;
+  const fontScaleEl = doc.getElementById("font-scale") as HTMLSelectElement;
+  const previewEl = doc.getElementById("font-preview") as HTMLElement;
+  const unsavedEl = doc.getElementById("unsaved-indicator")!;
+
+  assert.equal(fontFamilyEl.value, "default");
+  assert.equal(fontScaleEl.value, "md");
+  assert.equal(customFontField.classList.contains("hidden"), true);
+  assert.equal(unsavedEl.classList.contains("hidden"), true);
+
+  fontFamilyEl.value = "custom";
+  fontFamilyEl.dispatchEvent(new parsed.window.Event("change", { bubbles: true }));
+  assert.equal(customFontField.classList.contains("hidden"), false);
+  assert.equal(unsavedEl.classList.contains("hidden"), false);
+
+  customFontInput.value = "RIDIBatang";
+  customFontInput.dispatchEvent(new parsed.window.Event("input", { bubbles: true }));
+  assert.match(previewEl.style.fontFamily, /RIDIBatang/);
+
+  fontScaleEl.value = "lg";
+  fontScaleEl.dispatchEvent(new parsed.window.Event("change", { bubbles: true }));
+  assert.equal(previewEl.style.fontSize, "16px");
+
+  doc.getElementById("save-btn")!.dispatchEvent(new parsed.window.Event("click", { bubbles: true }));
+  await waitFor(() => updates.length === 1, "options typography save");
+
+  assert.equal(updates[0].fontFamily, "custom");
+  assert.equal(updates[0].customFontFamily, "RIDIBatang");
+  assert.equal(updates[0].fontScale, "lg");
+  await waitFor(() => unsavedEl.classList.contains("hidden"), "unsaved badge clears after typography save");
+});
+
+test("PageReadingSession applies saved font family CSS variable and font scale on load", async () => {
+  const ports: FakePort[] = [];
+  const restore = installTestGlobals(
+    `<html><body><article><h1>Study</h1><p id="p1">Measured current remained constant after cycling.</p></article></body></html>`,
+    ports,
+  );
+  const styledSettings: ExtensionSettings = {
+    ...testSettings(),
+    fontFamily: "serif",
+    fontScale: "lg",
+  };
+  const sendRuntimeMessage = (async (req: RuntimeRequest): Promise<RuntimeResponse> => {
+    if (req.type === "settings/get") return { ok: true, settings: styledSettings };
+    if (req.type === "summary/generate") return { ok: true, result: { summary: "요약 결과" } };
+    return { ok: false, error: "unexpected" };
+  }) as typeof import("../src/shared/messages").sendRuntimeMessage;
+
+  const session = createPageReadingSession({
+    sendRuntimeMessage,
+    scheduleRetry: () => () => undefined,
+  });
+
+  try {
+    await session.summarize();
+    assert.match(document.documentElement.style.getPropertyValue("--pl-font-family"), /Noto Serif KR/);
+    assert.equal(document.documentElement.getAttribute("data-paperlens-font-scale"), "lg");
+
+    applyReadingTypography({});
+    assert.equal(document.documentElement.style.getPropertyValue("--pl-font-family") || "", "");
+    assert.equal(document.documentElement.getAttribute("data-paperlens-font-scale"), null);
   } finally {
     session.reset();
     restore();

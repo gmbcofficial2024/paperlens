@@ -60,8 +60,8 @@ function legacySettings(): ExtensionSettings {
     currentProvider: "openai",
     providerSettings: {
       gemini: { model: "gemini-pro-latest", apiKey: "synthetic-gemini-key" },
-      vertex: { model: "gemini-3.8-flash", apiKey: "synthetic-vertex-key" },
-      openai: { model: "gpt-6.1-sol", apiKey: "synthetic-openai-key" },
+      vertex: { model: "gemini-4-hydrogen", apiKey: "synthetic-vertex-key" },
+      openai: { model: "gpt-6.2-sol", apiKey: "synthetic-openai-key" },
       anthropic: { model: "claude-sonnet-5-5", apiKey: "synthetic-anthropic-key" },
       custom: { model: "private-model", apiKey: "synthetic-custom-key", customUrl: "https://api.example.test/v1/chat/completions" },
     },
@@ -184,13 +184,13 @@ for (const mode of [
 for (const request of [
   {
     provider: "vertex" as const,
-    model: "gemini-3.1-pro-preview",
-    url: "https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-3.1-pro-preview:generateContent?key=synthetic-vertex-key",
+    model: "gemini-4-neon",
+    url: "https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-4-neon:generateContent?key=synthetic-vertex-key",
     headers: { "Content-Type": "application/json" },
   },
   {
     provider: "openai" as const,
-    model: "gpt-6.1-sol",
+    model: "gpt-6.2-sol",
     url: "https://api.openai.com/v1/chat/completions",
     headers: { "Content-Type": "application/json", Authorization: "Bearer synthetic-openai-key" },
   },

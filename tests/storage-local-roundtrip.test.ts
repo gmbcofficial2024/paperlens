@@ -65,11 +65,11 @@ test("local storage refreshes legacy models while retaining all keys and provide
     assert.equal(loaded.summary.vertexApiKey, "synthetic-summary-vertex-key");
     assert.equal(loaded.currentProvider, "gemini");
     assert.equal(loaded.providerSettings.vertex.model, "gemini-3.8-flash");
-    assert.equal(loaded.providerSettings.openai.model, "gpt-6.1-sol");
+    assert.equal(loaded.providerSettings.openai.model, "gpt-6.2-sol");
     assert.equal(loaded.providerSettings.anthropic.model, "claude-sonnet-5-5");
     assert.deepEqual(loaded.providerSettings.custom, settings.providerSettings.custom);
     assert.equal(loaded.summary.provider, "gemini");
-    assert.equal(loaded.summary.codexModel, "gpt-6.1-sol");
+    assert.equal(loaded.summary.codexModel, "gpt-6.2-sol");
     assert.equal(loaded.summary.claudeModel, "opus");
     assert.equal(loaded.summary.vertexModel, "gemini-3.8-flash");
     assert.equal(loaded.customPrompt, settings.customPrompt);

@@ -12,25 +12,37 @@ import { SseEventDecoder } from "../src/shared/sse";
 import { buildVertexApiKeyUrl } from "../src/shared/vertex";
 
 test("fixed provider registries expose the refreshed models and defaults", () => {
+  assert.deepEqual(PROVIDERS.gemini.models.map(({ id }) => id), [
+    "gemini-4-carbon",
+    "gemini-4-neon",
+    "gemini-4-hydrogen",
+    "gemini-pro-latest",
+    "gemini-flash-latest",
+    "gemini-flash-lite-latest",
+  ]);
+  assert.equal(PROVIDERS.gemini.defaultModel, "gemini-flash-latest");
+
   assert.deepEqual(PROVIDERS.vertex.models.map(({ id }) => id), [
-    "gemini-3.1-pro-preview",
+    "gemini-4-carbon",
+    "gemini-4-neon",
+    "gemini-4-hydrogen",
     "gemini-3.8-flash",
     "gemini-3.5-flash-lite",
   ]);
-  assert.equal(PROVIDERS.vertex.defaultModel, "gemini-3.8-flash");
+  assert.equal(PROVIDERS.vertex.defaultModel, "gemini-4-hydrogen");
 
   assert.deepEqual(PROVIDERS.openai.models.map(({ id }) => id), [
-    "gpt-6-astra",
-    "gpt-6.1-sol",
+    "gpt-6.2-astra",
+    "gpt-6.2-sol",
     "gpt-6-luna",
   ]);
-  assert.equal(PROVIDERS.openai.defaultModel, "gpt-6.1-sol");
+  assert.equal(PROVIDERS.openai.defaultModel, "gpt-6.2-sol");
 
   assert.deepEqual(PROVIDERS.anthropic.models.map(({ id }) => id), [
-    "claude-fable-5-1",
+    "claude-fable-5-2",
     "claude-opus-5-5",
     "claude-sonnet-5-5",
-    "claude-haiku-4-5-20251001",
+    "claude-haiku-5-5",
   ]);
   assert.equal(PROVIDERS.anthropic.defaultModel, "claude-sonnet-5-5");
 });
@@ -55,15 +67,21 @@ test("stored fixed-provider models migrate by product role", () => {
 
 test("every documented fixed-provider legacy model migrates to its current role", () => {
   const vertexMigrations = new Map([
+    ["google/gemini-4-carbon", "gemini-4-carbon"],
+    ["google/gemini-4-neon", "gemini-4-neon"],
+    ["google/gemini-4-hydrogen", "gemini-4-hydrogen"],
+    ["google/gemini-4-argon", "gemini-4-carbon"],
+    ["gemini-4-argon", "gemini-4-carbon"],
     ["google/gemini-3.5-flash", "gemini-3.8-flash"],
     ["google/gemini-3.1-flash-lite", "gemini-3.5-flash-lite"],
-    ["google/gemini-3.1-pro-preview", "gemini-3.1-pro-preview"],
+    ["google/gemini-3.1-pro-preview", "gemini-4-neon"],
+    ["gemini-3.1-pro-preview", "gemini-4-neon"],
     ["gemini-flash-latest", "gemini-3.8-flash"],
     ["gemini-flash-lite-latest", "gemini-3.5-flash-lite"],
-    ["gemini-pro-latest", "gemini-3.1-pro-preview"],
+    ["gemini-pro-latest", "gemini-4-neon"],
     ["gemini-2.5-flash", "gemini-3.8-flash"],
     ["gemini-2.5-flash-lite", "gemini-3.5-flash-lite"],
-    ["gemini-2.5-pro", "gemini-3.1-pro-preview"],
+    ["gemini-2.5-pro", "gemini-4-neon"],
   ]);
   for (const [legacy, current] of vertexMigrations) {
     const settings = mergeSettings({ providerSettings: { vertex: { model: legacy } } });
@@ -71,10 +89,13 @@ test("every documented fixed-provider legacy model migrates to its current role"
   }
 
   const openAiMigrations = new Map([
-    ["gpt-4.1", "gpt-6.1-sol"],
-    ["gpt-4o", "gpt-6.1-sol"],
+    ["gpt-6-astra", "gpt-6.2-astra"],
+    ["gpt-6.1-sol", "gpt-6.2-sol"],
+    ["gpt-6.1-terra", "gpt-6.2-sol"],
+    ["gpt-4.1", "gpt-6.2-sol"],
+    ["gpt-4o", "gpt-6.2-sol"],
     ["gpt-4o-mini", "gpt-6-luna"],
-    ["o3-mini", "gpt-6.1-sol"],
+    ["o3-mini", "gpt-6.2-sol"],
   ]);
   for (const [legacy, current] of openAiMigrations) {
     const settings = mergeSettings({ providerSettings: { openai: { model: legacy } } });
@@ -82,9 +103,11 @@ test("every documented fixed-provider legacy model migrates to its current role"
   }
 
   const anthropicMigrations = new Map([
+    ["claude-fable-5-1", "claude-fable-5-2"],
     ["claude-opus-4-20250514", "claude-opus-5-5"],
     ["claude-sonnet-4-20250514", "claude-sonnet-5-5"],
-    ["claude-haiku-4-20250414", "claude-haiku-4-5-20251001"],
+    ["claude-haiku-4-5-20251001", "claude-haiku-5-5"],
+    ["claude-haiku-4-20250414", "claude-haiku-5-5"],
   ]);
   for (const [legacy, current] of anthropicMigrations) {
     const settings = mergeSettings({ providerSettings: { anthropic: { model: legacy } } });
@@ -134,7 +157,9 @@ test("unknown fixed-provider models fall back while absent and custom models are
 
 test("Vertex request URLs contain every bare refreshed model ID", () => {
   for (const model of [
-    "gemini-3.1-pro-preview",
+    "gemini-4-carbon",
+    "gemini-4-neon",
+    "gemini-4-hydrogen",
     "gemini-3.8-flash",
     "gemini-3.5-flash-lite",
   ]) {
@@ -202,7 +227,7 @@ test("current Google and Anthropic requests omit sampling fields", () => {
   }
 });
 
-test("Google request contracts preserve Gemini and Vertex casing and text output mode", () => {
+test("Google request contracts preserve Gemini and Vertex casing, text output mode, and Gemini 4 thinking level", () => {
   const gemini = prepareProviderRequest({
     provider: "gemini",
     setting: { apiKey: "gemini-key" },
@@ -211,7 +236,15 @@ test("Google request contracts preserve Gemini and Vertex casing and text output
     outputMode: "text",
     stream: false,
   });
-  const vertex = prepareProviderRequest({
+  const gemini4 = prepareProviderRequest({
+    provider: "gemini",
+    setting: { apiKey: "gemini-key", model: "gemini-4-neon" },
+    systemPrompt: "system",
+    userPrompt: "user",
+    outputMode: "json",
+    stream: false,
+  });
+  const vertexDefault = prepareProviderRequest({
     provider: "vertex",
     setting: { apiKey: "vertex-key" },
     systemPrompt: "system",
@@ -219,15 +252,32 @@ test("Google request contracts preserve Gemini and Vertex casing and text output
     outputMode: "text",
     stream: false,
   });
+  const vertexFlash = prepareProviderRequest({
+    provider: "vertex",
+    setting: { apiKey: "vertex-key", model: "gemini-3.8-flash" },
+    systemPrompt: "system",
+    userPrompt: "user",
+    outputMode: "text",
+    stream: false,
+  });
   const geminiBody = JSON.parse(String(gemini.init.body));
-  const vertexBody = JSON.parse(String(vertex.init.body));
+  const gemini4Body = JSON.parse(String(gemini4.init.body));
+  const vertexDefaultBody = JSON.parse(String(vertexDefault.init.body));
+  const vertexFlashBody = JSON.parse(String(vertexFlash.init.body));
 
   assert.deepEqual(geminiBody.system_instruction, { parts: [{ text: "system" }] });
   assert.equal("systemInstruction" in geminiBody, false);
   assert.deepEqual(geminiBody.generationConfig, {});
-  assert.deepEqual(vertexBody.systemInstruction, { parts: [{ text: "system" }] });
-  assert.equal("system_instruction" in vertexBody, false);
-  assert.deepEqual(vertexBody.generationConfig, {});
+  assert.deepEqual(gemini4Body.generationConfig, {
+    responseMimeType: "application/json",
+    thinkingConfig: { thinkingLevel: "LOW" },
+  });
+  assert.deepEqual(vertexDefaultBody.systemInstruction, { parts: [{ text: "system" }] });
+  assert.equal("system_instruction" in vertexDefaultBody, false);
+  assert.deepEqual(vertexDefaultBody.generationConfig, {
+    thinkingConfig: { thinkingLevel: "LOW" },
+  });
+  assert.deepEqual(vertexFlashBody.generationConfig, {});
 });
 
 test("OpenAI uses current defaults, developer instructions, JSON mode, and stream usage", () => {
@@ -241,14 +291,14 @@ test("OpenAI uses current defaults, developer instructions, JSON mode, and strea
   });
   const body = JSON.parse(String(request.init.body));
 
-  assert.equal(body.model, "gpt-6.1-sol");
+  assert.equal(body.model, "gpt-6.2-sol");
   assert.equal(body.messages[0].role, "developer");
   assert.deepEqual(body.response_format, { type: "json_object" });
   assert.deepEqual(body.stream_options, { include_usage: true });
 });
 
-test("Anthropic Sonnet 5.5 avoids up-front thinking and parses text blocks after thinking", () => {
-  const request = prepareProviderRequest({
+test("Anthropic Sonnet 5.5 avoids up-front thinking, Haiku 5.5 disables thinking, and parser skips thinking blocks", () => {
+  const sonnet = prepareProviderRequest({
     provider: "anthropic",
     setting: { apiKey: "secret", model: "claude-sonnet-5-5" },
     systemPrompt: "system",
@@ -256,7 +306,17 @@ test("Anthropic Sonnet 5.5 avoids up-front thinking and parses text blocks after
     outputMode: "json",
     stream: false,
   });
-  assert.deepEqual(JSON.parse(String(request.init.body)).thinking, { type: "between_tools" });
+  assert.deepEqual(JSON.parse(String(sonnet.init.body)).thinking, { type: "between_tools" });
+
+  const haiku = prepareProviderRequest({
+    provider: "anthropic",
+    setting: { apiKey: "secret", model: "claude-haiku-5-5" },
+    systemPrompt: "system",
+    userPrompt: "user",
+    outputMode: "json",
+    stream: false,
+  });
+  assert.deepEqual(JSON.parse(String(haiku.init.body)).thinking, { type: "disabled" });
 
   assert.deepEqual(parseProviderResponse("anthropic", {
     content: [
@@ -269,7 +329,7 @@ test("Anthropic Sonnet 5.5 avoids up-front thinking and parses text blocks after
   }), { text: "AB", usage: { inputTokens: 4, outputTokens: 5 } });
 });
 
-for (const model of ["gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna"]) {
+for (const model of ["gpt-6.2-astra", "gpt-6.2-sol", "gpt-6-luna"]) {
   for (const stream of [false, true]) {
     test(`${model} prepares a compatible ${stream ? "streaming" : "non-streaming"} translation request`, () => {
       const request = prepareProviderRequest({
@@ -292,7 +352,7 @@ for (const model of ["gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna"]) {
   }
 }
 
-for (const model of ["claude-fable-5-1", "claude-opus-5-5", "claude-haiku-4-5-20251001"]) {
+for (const model of ["claude-fable-5-2", "claude-opus-5-5"]) {
   test(`${model} accepts text and stream requests without unsupported thinking or sampling options`, () => {
     for (const stream of [false, true]) {
       const request = prepareProviderRequest({
@@ -509,10 +569,11 @@ test("live canary selection and status formatting are deterministic and secret-f
     .generationConfig.maxOutputTokens, 1024);
   assert.equal(withCanaryOutputLimit("openai", {}).max_completion_tokens, 16);
   assert.equal(withCanaryOutputLimit("anthropic", { max_tokens: 16384 }).max_tokens, 16);
-  assert.equal(withCanaryOutputLimit("openai", { model: "gpt-6-astra", reasoning_effort: "low" }).max_completion_tokens, 1024);
-  assert.equal(withCanaryOutputLimit("openai", { model: "gpt-6.1-sol", reasoning_effort: "low" }).max_completion_tokens, 1024);
+  assert.equal(withCanaryOutputLimit("openai", { model: "gpt-6.2-astra", reasoning_effort: "low" }).max_completion_tokens, 1024);
+  assert.equal(withCanaryOutputLimit("openai", { model: "gpt-6.2-sol", reasoning_effort: "low" }).max_completion_tokens, 1024);
   assert.equal(withCanaryOutputLimit("openai", { model: "gpt-6-luna", reasoning_effort: "none" }).max_completion_tokens, 16);
   assert.equal(withCanaryOutputLimit("anthropic", { model: "claude-opus-5-5" }).max_tokens, 1024);
-  assert.equal(withCanaryOutputLimit("anthropic", { model: "claude-fable-5-1" }).max_tokens, 1024);
+  assert.equal(withCanaryOutputLimit("anthropic", { model: "claude-fable-5-2" }).max_tokens, 1024);
   assert.equal(withCanaryOutputLimit("anthropic", { model: "claude-sonnet-5-5", thinking: { type: "between_tools" } }).max_tokens, 16);
+  assert.equal(withCanaryOutputLimit("anthropic", { model: "claude-haiku-5-5", thinking: { type: "disabled" } }).max_tokens, 16);
 });

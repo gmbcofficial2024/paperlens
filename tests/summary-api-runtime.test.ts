@@ -18,8 +18,8 @@ const SETTINGS_KEY = "paperlens_settings_v1";
 const summaryText = "Evidence-grounded Korean summary.";
 const sourceText = 'Measured current was 120 mA. "Ignore previous instructions" is quoted source text.';
 const providerModels = {
-  openai: ["gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna"],
-  anthropic: ["claude-fable-5-1", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-4-5-20251001"],
+  openai: ["gpt-6.2-astra", "gpt-6.2-sol", "gpt-6-luna"],
+  anthropic: ["claude-fable-5-2", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"],
 };
 const workerSources = new Map<boolean, string>();
 
@@ -42,7 +42,7 @@ function storedSettings(provider: SummaryApiProvider): ExtensionSettings {
     currentProvider: "gemini",
     providerSettings: {
       gemini: { apiKey: "synthetic-gemini-translation-key", model: "gemini-pro-latest" },
-      vertex: { apiKey: "synthetic-vertex-translation-key", model: "gemini-3.1-pro-preview" },
+      vertex: { apiKey: "synthetic-vertex-translation-key", model: "gemini-4-neon" },
       openai: { apiKey: "synthetic-openai-translation-key", model: "gpt-6-luna" },
       anthropic: { apiKey: "synthetic-anthropic-translation-key", model: "claude-sonnet-5-5" },
       custom: { apiKey: "synthetic-custom-key", model: "private-model", customUrl: "https://custom.example.test/api" },
@@ -50,11 +50,11 @@ function storedSettings(provider: SummaryApiProvider): ExtensionSettings {
     cacheEnabled: true, maxConcurrency: 2, customPrompt: "Preserve scientific qualifications.",
     summary: {
       provider, autoGenerate: false, prompt: "Summarize the evidence and its limitations.",
-      codexModel: "gpt-6.1-sol", claudeModel: "opus",
+      codexModel: "gpt-6.2-sol", claudeModel: "opus",
       geminiModel: "gemini-pro-latest", geminiApiKey: "synthetic-gemini-summary-key",
-      vertexModel: "gemini-3.1-pro-preview", vertexApiKey: "synthetic-vertex-summary-key",
-      openaiModel: "gpt-6-astra", openaiApiKey: "synthetic-openai-summary-key",
-      anthropicModel: "claude-fable-5-1", anthropicApiKey: "synthetic-anthropic-summary-key",
+      vertexModel: "gemini-4-neon", vertexApiKey: "synthetic-vertex-summary-key",
+      openaiModel: "gpt-6.2-astra", openaiApiKey: "synthetic-openai-summary-key",
+      anthropicModel: "claude-fable-5-2", anthropicApiKey: "synthetic-anthropic-summary-key",
     },
   };
 }
@@ -157,6 +157,7 @@ function assertSummaryRequest(request: CapturedRequest, provider: SummaryApiProv
     assert.ok(request.body.system);
     assert.equal(request.body.max_tokens, 16384);
     if (model === "claude-sonnet-5-5") assert.deepEqual(request.body.thinking, { type: "between_tools" });
+    else if (model === "claude-haiku-5-5") assert.deepEqual(request.body.thinking, { type: "disabled" });
     else assert.equal("thinking" in request.body, false);
   }
 }
@@ -197,7 +198,7 @@ for (const distribution of [false, true]) {
       const response = await worker.message({ type: "summary/generate", articleText: sourceText });
       assert.equal(response.ok, true, response.error);
       assert.equal(worker.requests.length, 1);
-      assertSummaryRequest(worker.requests[0], provider, provider === "openai" ? "gpt-6.1-sol" : "claude-sonnet-5-5", stored.summary[`${provider}ApiKey`]!);
+      assertSummaryRequest(worker.requests[0], provider, provider === "openai" ? "gpt-6.2-sol" : "claude-sonnet-5-5", stored.summary[`${provider}ApiKey`]!);
       assert.equal(worker.nativeRequests.length, 0);
     });
 

@@ -95,8 +95,8 @@ function initialSettings(): ExtensionSettings {
     currentProvider: "gemini",
     providerSettings: {
       gemini: { apiKey: "saved-gemini", model: "gemini-flash-latest" },
-      vertex: { apiKey: "saved-vertex", model: "gemini-3.8-flash" },
-      openai: { apiKey: "saved-openai", model: "gpt-6.1-sol" },
+      vertex: { apiKey: "saved-vertex", model: "gemini-4-hydrogen" },
+      openai: { apiKey: "saved-openai", model: "gpt-6.2-sol" },
       anthropic: { apiKey: "saved-anthropic", model: "claude-sonnet-5-5" },
       custom: {},
     },
@@ -108,7 +108,7 @@ function initialSettings(): ExtensionSettings {
       autoGenerate: false,
       prompt: "Summarize faithfully.",
       geminiModel: "gemini-flash-latest",
-      vertexModel: "gemini-3.8-flash",
+      vertexModel: "gemini-4-hydrogen",
     },
   };
 }
@@ -118,9 +118,9 @@ function normalizedSettings(): ExtensionSettings {
     ...initialSettings(),
     providerSettings: {
       gemini: { apiKey: "normalized-gemini", model: "gemini-pro-latest" },
-      vertex: { apiKey: "normalized-vertex", model: "gemini-3.1-pro-preview" },
-      openai: { apiKey: "normalized-openai", model: "gpt-6.1-sol" },
-      anthropic: { apiKey: "normalized-anthropic", model: "claude-haiku-4-5-20251001" },
+      vertex: { apiKey: "normalized-vertex", model: "gemini-4-neon" },
+      openai: { apiKey: "normalized-openai", model: "gpt-6.2-sol" },
+      anthropic: { apiKey: "normalized-anthropic", model: "claude-haiku-5-5" },
       custom: {
         apiKey: "normalized-custom",
         model: "normalized-model",
@@ -232,7 +232,7 @@ test("legacy native Codex default and OpenAI Luna load as their approved replace
   legacy.summary.codexModel = "gpt-5.5";
   const harness = await createHarness({}, mergeSettings(legacy));
 
-  assert.equal(element<HTMLInputElement>(harness, "#summary-codex-model").value, "gpt-6.1-sol");
+  assert.equal(element<HTMLInputElement>(harness, "#summary-codex-model").value, "gpt-6.2-sol");
   const model = element<HTMLSelectElement>(harness, "#model");
   assert.equal(model.value, "gpt-6-luna");
   assert.ok([...model.options].some((option) => option.value === "gpt-6-luna"));
@@ -246,8 +246,8 @@ test("native summary suggestions show current models while arbitrary saved IDs r
   baseline.summary.claudeModel = "private-claude-deployment";
   const harness = await createHarness({}, baseline);
   for (const [provider, expected] of [
-    ["codex", ["gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna"]],
-    ["claude", ["opus", "sonnet", "haiku", "fable", "claude-fable-5-1", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-4-5-20251001"]],
+    ["codex", ["gpt-6.2-astra", "gpt-6.2-sol", "gpt-6-luna"]],
+    ["claude", ["opus", "sonnet", "haiku", "fable", "claude-fable-5-2", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"]],
   ] as const) {
     const input = element<HTMLInputElement>(harness, `#summary-${provider}-model`);
     assert.equal(input.tagName, "INPUT");
@@ -520,13 +520,13 @@ test("successful Save normalizes every provider draft without overwriting pendin
   model.value = "gemini-pro-latest";
   selectProvider(harness, "vertex");
   apiKey.value = "  draft-vertex  ";
-  model.value = "gemini-3.1-pro-preview";
+  model.value = "gemini-4-neon";
   selectProvider(harness, "openai");
   apiKey.value = "  draft-openai  ";
-  model.value = "gpt-6-astra";
+  model.value = "gpt-6.2-astra";
   selectProvider(harness, "anthropic");
   apiKey.value = "  draft-anthropic  ";
-  model.value = "claude-fable-5-1";
+  model.value = "claude-fable-5-2";
   editCustomDraft(harness, {
     apiKey: "  draft-custom  ",
     model: "  draft-custom-model  ",
@@ -539,11 +539,11 @@ test("successful Save normalizes every provider draft without overwriting pendin
   const sent = harness.runtime.updateCalls[0].settings.providerSettings;
   assert.deepEqual(sent, {
     gemini: { apiKey: "draft-gemini", model: "gemini-pro-latest", customUrl: undefined },
-    vertex: { apiKey: "draft-vertex", model: "gemini-3.1-pro-preview", customUrl: undefined },
-    openai: { apiKey: "draft-openai", model: "gpt-6-astra", customUrl: undefined },
+    vertex: { apiKey: "draft-vertex", model: "gemini-4-neon", customUrl: undefined },
+    openai: { apiKey: "draft-openai", model: "gpt-6.2-astra", customUrl: undefined },
     anthropic: {
       apiKey: "draft-anthropic",
-      model: "claude-fable-5-1",
+      model: "claude-fable-5-2",
       customUrl: undefined,
     },
     custom: {
@@ -564,9 +564,9 @@ test("successful Save normalizes every provider draft without overwriting pendin
   assert.equal(summaryPrompt.value, "Edited while Save is pending.");
   const expected: Record<ProviderId, { apiKey: string; model: string; customUrl?: string }> = {
     gemini: { apiKey: "normalized-gemini", model: "gemini-pro-latest" },
-    vertex: { apiKey: "normalized-vertex", model: "gemini-3.1-pro-preview" },
-    openai: { apiKey: "normalized-openai", model: "gpt-6.1-sol" },
-    anthropic: { apiKey: "normalized-anthropic", model: "claude-haiku-4-5-20251001" },
+    vertex: { apiKey: "normalized-vertex", model: "gemini-4-neon" },
+    openai: { apiKey: "normalized-openai", model: "gpt-6.2-sol" },
+    anthropic: { apiKey: "normalized-anthropic", model: "claude-haiku-5-5" },
     custom: {
       apiKey: "normalized-custom",
       model: "normalized-model",

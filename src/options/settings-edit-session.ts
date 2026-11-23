@@ -3,6 +3,15 @@ import { PROVIDERS, listProviders } from "../shared/providers";
 import { DISTRIBUTION_API_MODEL, IS_DISTRIBUTION } from "../shared/distribution-policy";
 import { mergeSettings } from "../shared/schema";
 import { redactSecrets } from "../shared/secrets";
+import {
+  FONT_FAMILY_OPTIONS,
+  FONT_SCALE_OPTIONS,
+  normalizeFontScale,
+  resolveFontFamilyCss,
+  sanitizeCustomFontFamily,
+  type FontFamilyPreset,
+  type FontScale,
+} from "../shared/typography";
 import type {
   ExtensionSettings,
   ProviderId,
@@ -103,6 +112,11 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
   private readonly cacheEnabledInput: HTMLInputElement;
   private readonly customPromptInput: HTMLTextAreaElement;
   private readonly glossaryInput: HTMLTextAreaElement | null;
+  private readonly fontFamilySelect: HTMLSelectElement | null;
+  private readonly customFontFamilyField: HTMLElement | null;
+  private readonly customFontFamilyInput: HTMLInputElement | null;
+  private readonly fontScaleSelect: HTMLSelectElement | null;
+  private readonly fontPreview: HTMLElement | null;
   private readonly unsavedIndicator: HTMLElement | null;
   private readonly summaryAutoGenerateInput: HTMLInputElement;
   private readonly summaryProviderSelect: HTMLSelectElement;
@@ -152,6 +166,11 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
     this.cacheEnabledInput = requireElement<HTMLInputElement>(document, "cache-enabled");
     this.customPromptInput = requireElement<HTMLTextAreaElement>(document, "custom-prompt");
     this.glossaryInput = document.getElementById("glossary") as HTMLTextAreaElement | null;
+    this.fontFamilySelect = document.getElementById("font-family") as HTMLSelectElement | null;
+    this.customFontFamilyField = document.getElementById("custom-font-family-field");
+    this.customFontFamilyInput = document.getElementById("custom-font-family") as HTMLInputElement | null;
+    this.fontScaleSelect = document.getElementById("font-scale") as HTMLSelectElement | null;
+    this.fontPreview = document.getElementById("font-preview");
     this.unsavedIndicator = document.getElementById("unsaved-indicator");
     this.summaryAutoGenerateInput = requireElement<HTMLInputElement>(
       document,
@@ -272,6 +291,9 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
       this.cacheEnabledInput,
       this.customPromptInput,
       this.glossaryInput,
+      this.fontFamilySelect,
+      this.customFontFamilyInput,
+      this.fontScaleSelect,
       this.summaryAutoGenerateInput,
       this.summaryCodexModelInput,
       this.summaryClaudeModelInput,
@@ -287,9 +309,51 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
     ];
     for (const control of dirtyInputs) {
       if (!control) continue;
-      control.addEventListener("input", () => this.updateUnsavedState());
-      control.addEventListener("change", () => this.updateUnsavedState());
+      control.addEventListener("input", () => {
+        if (control === this.fontFamilySelect || control === this.customFontFamilyInput || control === this.fontScaleSelect) {
+          this.renderTypographyPreview();
+        }
+        this.updateUnsavedState();
+      });
+      control.addEventListener("change", () => {
+        if (control === this.fontFamilySelect || control === this.customFontFamilyInput || control === this.fontScaleSelect) {
+          this.renderTypographyPreview();
+        }
+        this.updateUnsavedState();
+      });
     }
+  }
+
+  private populateTypographyControls(): void {
+    if (this.fontFamilySelect) {
+      this.populateModelChoices(
+        this.fontFamilySelect,
+        FONT_FAMILY_OPTIONS.map((item) => ({ id: item.id, label: item.label })),
+      );
+    }
+    if (this.fontScaleSelect) {
+      this.populateModelChoices(
+        this.fontScaleSelect,
+        FONT_SCALE_OPTIONS.map((item) => ({ id: item.id, label: item.label })),
+      );
+    }
+  }
+
+  private renderTypographyPreview(): void {
+    const preset = (this.fontFamilySelect?.value || "default") as FontFamilyPreset;
+    const customFont = this.customFontFamilyInput?.value ?? "";
+    const scale = (this.fontScaleSelect?.value || "md") as FontScale;
+
+    this.customFontFamilyField?.classList.toggle("hidden", preset !== "custom");
+    if (!this.fontPreview) return;
+
+    const cssFont = resolveFontFamilyCss(preset, customFont);
+    if (cssFont) {
+      this.fontPreview.style.fontFamily = cssFont;
+    } else {
+      this.fontPreview.style.removeProperty("font-family");
+    }
+    this.fontPreview.style.fontSize = scale === "sm" ? "13px" : scale === "lg" ? "16px" : "14.5px";
   }
 
   private currentFormSignature(): string | null {
@@ -517,6 +581,12 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
       if (this.glossaryInput) this.glossaryInput.value = settings.glossary ?? "";
       this.cacheEnabledInput.checked = settings.cacheEnabled;
 
+      this.populateTypographyControls();
+      if (this.fontFamilySelect) this.fontFamilySelect.value = settings.fontFamily ?? "default";
+      if (this.customFontFamilyInput) this.customFontFamilyInput.value = settings.customFontFamily ?? "";
+      if (this.fontScaleSelect) this.fontScaleSelect.value = settings.fontScale ?? "md";
+      this.renderTypographyPreview();
+
       this.populateSummaryModels();
       this.summaryAutoGenerateInput.checked = settings.summary.autoGenerate;
       this.summaryProviderSelect.value = settings.summary.provider;
@@ -566,6 +636,18 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
     if (!baseline) throw new Error("Settings baseline is unavailable");
 
     const glossary = this.glossaryInput ? toOptionalString(this.glossaryInput.value) : baseline.glossary;
+    const rawFontFamily = this.fontFamilySelect
+      ? (this.fontFamilySelect.value as FontFamilyPreset)
+      : baseline.fontFamily;
+    const fontFamily = rawFontFamily && rawFontFamily !== "default" ? rawFontFamily : undefined;
+    const customFontFamily = fontFamily === "custom"
+      ? sanitizeCustomFontFamily(
+          this.customFontFamilyInput ? this.customFontFamilyInput.value : baseline.customFontFamily,
+        )
+      : undefined;
+    const fontScale = normalizeFontScale(
+      this.fontScaleSelect ? this.fontScaleSelect.value : baseline.fontScale,
+    );
     const snapshot: ExtensionSettings = {
       currentProvider,
       providerSettings,
@@ -573,6 +655,9 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
       maxConcurrency: parseInt(this.concurrencyInput.value) || 3,
       customPrompt: this.customPromptInput.value.trim(),
       ...(glossary ? { glossary } : {}),
+      ...(fontFamily ? { fontFamily } : {}),
+      ...(customFontFamily ? { customFontFamily } : {}),
+      ...(fontScale ? { fontScale } : {}),
       summary: {
         ...baseline.summary,
         provider: this.summaryProviderSelect.value as SummaryProviderId,
@@ -650,6 +735,10 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
         this.displayedProviderId,
         this.providerDrafts[this.displayedProviderId],
       );
+      if (this.fontFamilySelect) this.fontFamilySelect.value = settings.fontFamily ?? "default";
+      if (this.customFontFamilyInput) this.customFontFamilyInput.value = settings.customFontFamily ?? "";
+      if (this.fontScaleSelect) this.fontScaleSelect.value = settings.fontScale ?? "md";
+      this.renderTypographyPreview();
       this.captureBaselineSignature();
       this.showToast("Settings saved");
     } catch (error) {

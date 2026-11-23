@@ -7,21 +7,28 @@ export interface VertexApiKeyUrlOptions {
 }
 
 const VERTEX_MODEL_MIGRATIONS: Record<string, string> = {
+  "google/gemini-4-carbon": "gemini-4-carbon",
+  "google/gemini-4-neon": "gemini-4-neon",
+  "google/gemini-4-hydrogen": "gemini-4-hydrogen",
+  "google/gemini-4-argon": "gemini-4-carbon",
+  "gemini-4-argon": "gemini-4-carbon",
+  "google/gemini-3.1-pro-preview": "gemini-4-neon",
+  "gemini-3.1-pro-preview": "gemini-4-neon",
   "google/gemini-3.5-flash": "gemini-3.8-flash",
   "google/gemini-3.6-flash": "gemini-3.8-flash",
   "google/gemini-3.7-flash": "gemini-3.8-flash",
   "google/gemini-3.8-flash": "gemini-3.8-flash",
+  "google/gemini-3.5-flash-lite": "gemini-3.5-flash-lite",
   "google/gemini-3.1-flash-lite": "gemini-3.5-flash-lite",
-  "google/gemini-3.1-pro-preview": "gemini-3.1-pro-preview",
   "gemini-3.5-flash": "gemini-3.8-flash",
   "gemini-3.6-flash": "gemini-3.8-flash",
   "gemini-3.7-flash": "gemini-3.8-flash",
   "gemini-3.1-flash-lite": "gemini-3.5-flash-lite",
   "gemini-flash-latest": "gemini-3.8-flash",
-  "gemini-pro-latest": "gemini-3.1-pro-preview",
+  "gemini-pro-latest": "gemini-4-neon",
   "gemini-flash-lite-latest": "gemini-3.5-flash-lite",
   "gemini-2.5-flash": "gemini-3.8-flash",
-  "gemini-2.5-pro": "gemini-3.1-pro-preview",
+  "gemini-2.5-pro": "gemini-4-neon",
   "gemini-2.5-flash-lite": "gemini-3.5-flash-lite",
 };
 
@@ -69,14 +76,27 @@ export function buildVertexApiKeyUrl(options: VertexApiKeyUrlOptions): string {
   return url.toString();
 }
 
+export function isGemini4Model(model?: string): boolean {
+  return Boolean(model && /^gemini-4-/i.test(model.trim()));
+}
+
 export function buildVertexBody(
   systemPrompt: string,
   userPrompt: string,
   responseMimeType?: string,
+  model?: string,
 ): Record<string, unknown> {
+  const normalizedModel = model ? normalizeVertexModel(model) : undefined;
+  const generationConfig: Record<string, unknown> = {};
+  if (responseMimeType) {
+    generationConfig.responseMimeType = responseMimeType;
+  }
+  if (isGemini4Model(normalizedModel)) {
+    generationConfig.thinkingConfig = { thinkingLevel: "LOW" };
+  }
   return {
     systemInstruction: { parts: [{ text: systemPrompt }] },
     contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-    generationConfig: responseMimeType ? { responseMimeType } : {},
+    generationConfig,
   };
 }

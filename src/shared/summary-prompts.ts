@@ -13,7 +13,7 @@ export const LEGACY_DEFAULT_SUMMARY_PROMPTS: readonly string[] = [
   "Write a concise Korean summary grounded in the supplied source. For a paper, focus on the research problem, method, evidence, results, interpretation, limitations, and significance. For an article, focus on context, attributed claims, evidence, qualifications, and implications.",
 ];
 
-export const DEFAULT_CODEX_SUMMARY_MODEL = "gpt-6.1-sol";
+export const DEFAULT_CODEX_SUMMARY_MODEL = "gpt-6.2-sol";
 export const DEFAULT_CLAUDE_SUMMARY_MODEL = "opus";
 
 export const SUMMARY_SOURCE_TAG = "page_controlled_source";

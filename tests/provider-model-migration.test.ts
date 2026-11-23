@@ -33,13 +33,16 @@ const legacySettings = () => ({
 
 test("known OpenAI model migrations preserve balanced and economical choices", () => {
   for (const [previous, current] of [
-    ["gpt-5.6-sol", "gpt-6.1-sol"],
-    ["gpt-5.6-terra", "gpt-6.1-sol"],
+    ["gpt-6-astra", "gpt-6.2-astra"],
+    ["gpt-6.1-sol", "gpt-6.2-sol"],
+    ["gpt-6.1-terra", "gpt-6.2-sol"],
+    ["gpt-5.6-sol", "gpt-6.2-sol"],
+    ["gpt-5.6-terra", "gpt-6.2-sol"],
     ["gpt-5.6-luna", "gpt-6-luna"],
-    ["gpt-4.1", "gpt-6.1-sol"],
-    ["gpt-4o", "gpt-6.1-sol"],
+    ["gpt-4.1", "gpt-6.2-sol"],
+    ["gpt-4o", "gpt-6.2-sol"],
     ["gpt-4o-mini", "gpt-6-luna"],
-    ["o3-mini", "gpt-6.1-sol"],
+    ["o3-mini", "gpt-6.2-sol"],
   ]) {
     const raw = legacySettings();
     raw.providerSettings.openai.model = previous;
@@ -50,14 +53,15 @@ test("known OpenAI model migrations preserve balanced and economical choices", (
   }
 });
 
-test("known Anthropic model migrations retain Opus, Sonnet and Haiku roles", () => {
+test("known Anthropic model migrations retain Fable, Opus, Sonnet and Haiku roles", () => {
   for (const [previous, current] of [
+    ["claude-fable-5-1", "claude-fable-5-2"],
     ["claude-opus-4-8", "claude-opus-5-5"],
     ["claude-sonnet-5", "claude-sonnet-5-5"],
-    ["claude-haiku-4-5-20251001", "claude-haiku-4-5-20251001"],
+    ["claude-haiku-4-5-20251001", "claude-haiku-5-5"],
     ["claude-opus-4-20250514", "claude-opus-5-5"],
     ["claude-sonnet-4-20250514", "claude-sonnet-5-5"],
-    ["claude-haiku-4-20250414", "claude-haiku-4-5-20251001"],
+    ["claude-haiku-4-20250414", "claude-haiku-5-5"],
   ]) {
     const raw = legacySettings();
     raw.currentProvider = "anthropic";
@@ -72,7 +76,7 @@ test("known Anthropic model migrations retain Opus, Sonnet and Haiku roles", () 
 test("model refresh preserves every key, provider, custom endpoint and unrelated setting", () => {
   const raw = legacySettings();
   const migrated = mergeSettings(raw);
-  assert.equal(migrated.providerSettings.openai.model, "gpt-6.1-sol");
+  assert.equal(migrated.providerSettings.openai.model, "gpt-6.2-sol");
   assert.equal(migrated.providerSettings.anthropic.model, "claude-opus-5-5");
   assert.equal(migrated.providerSettings.vertex.model, "gemini-3.8-flash");
   assert.equal(migrated.summary.vertexModel, "gemini-3.8-flash");
@@ -82,7 +86,7 @@ test("model refresh preserves every key, provider, custom endpoint and unrelated
   assert.deepEqual(migrated.providerSettings.custom, raw.providerSettings.custom);
   assert.equal(migrated.summary.geminiApiKey, raw.summary.geminiApiKey);
   assert.equal(migrated.summary.vertexApiKey, raw.summary.vertexApiKey);
-  assert.equal(migrated.summary.codexModel, "gpt-6.1-sol");
+  assert.equal(migrated.summary.codexModel, "gpt-6.2-sol");
   assert.equal(migrated.summary.claudeModel, "opus");
   assert.equal(migrated.summary.provider, "codex");
   assert.equal(migrated.summary.autoGenerate, true);
@@ -95,19 +99,24 @@ test("model refresh preserves every key, provider, custom endpoint and unrelated
 });
 
 test("current explicit API model IDs survive migration unchanged", () => {
-  for (const model of ["gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna"]) {
+  for (const model of ["gemini-4-carbon", "gemini-4-neon", "gemini-4-hydrogen", "gemini-3.8-flash", "gemini-3.5-flash-lite"]) {
+    assert.equal(mergeSettings({ providerSettings: { vertex: { model } } })
+      .providerSettings.vertex.model, model);
+  }
+  for (const model of ["gpt-6.2-astra", "gpt-6.2-sol", "gpt-6-luna"]) {
     assert.equal(mergeSettings({ providerSettings: { openai: { model } } })
       .providerSettings.openai.model, model);
   }
-  for (const model of ["claude-fable-5-1", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-4-5-20251001"]) {
+  for (const model of ["claude-fable-5-2", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"]) {
     assert.equal(mergeSettings({ providerSettings: { anthropic: { model } } })
       .providerSettings.anthropic.model, model);
   }
 });
 
-test("Codex default refresh migrates only the exact previous default", () => {
-  assert.equal(defaultSettings().summary.codexModel, "gpt-6.1-sol");
-  assert.equal(mergeSettings({ summary: { codexModel: "gpt-5.5" } }).summary.codexModel, "gpt-6.1-sol");
+test("Codex default refresh migrates only the exact previous defaults", () => {
+  assert.equal(defaultSettings().summary.codexModel, "gpt-6.2-sol");
+  assert.equal(mergeSettings({ summary: { codexModel: "gpt-5.5" } }).summary.codexModel, "gpt-6.2-sol");
+  assert.equal(mergeSettings({ summary: { codexModel: "gpt-6.1-sol" } }).summary.codexModel, "gpt-6.2-sol");
   for (const model of ["gpt-5.5-pro", "gpt-5.6-sol", "gpt-6-astra", "private-codex-model-v7"]) {
     assert.equal(mergeSettings({ summary: { provider: "codex", codexModel: model } })
       .summary.codexModel, model);

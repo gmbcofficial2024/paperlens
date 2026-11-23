@@ -1,7 +1,14 @@
-import type { TokenUsage } from "../shared/types";
+import type { ExtensionSettings, TokenUsage } from "../shared/types";
+import {
+  FONT_FAMILY_PRESETS,
+  normalizeFontScale,
+  resolveFontFamilyCss,
+  type FontFamilyPreset,
+  type FontScale,
+} from "../shared/typography";
 
 export type ReadingMode = "bilingual" | "focus" | "source";
-export type FontScale = "sm" | "md" | "lg";
+export type { FontScale };
 
 export interface WidgetCallbacks {
   onStop?: () => void;
@@ -278,6 +285,26 @@ function clearDocumentDisplayAttributes(): void {
   if (!root) return;
   root.removeAttribute("data-paperlens-reading-mode");
   root.removeAttribute("data-paperlens-font-scale");
+  root.style?.removeProperty("--pl-font-family");
+}
+
+export function applyReadingTypography(
+  settings: Pick<ExtensionSettings, "fontFamily" | "customFontFamily" | "fontScale">,
+): void {
+  const root = document.documentElement;
+  if (root?.style) {
+    const preset = typeof settings.fontFamily === "string"
+      && (FONT_FAMILY_PRESETS as readonly string[]).includes(settings.fontFamily)
+      ? (settings.fontFamily as FontFamilyPreset)
+      : undefined;
+    const cssFont = resolveFontFamilyCss(preset, settings.customFontFamily);
+    if (cssFont) {
+      root.style.setProperty("--pl-font-family", cssFont);
+    } else {
+      root.style.removeProperty("--pl-font-family");
+    }
+  }
+  setWidgetFontScale(normalizeFontScale(settings.fontScale) ?? "md");
 }
 
 function statusSubtitleText(): string {

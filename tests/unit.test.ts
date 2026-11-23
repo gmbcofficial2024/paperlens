@@ -41,7 +41,7 @@ test("migrates legacy provider settings and ignores unknown settings", () => {
   assert.equal(settings.summary.provider, "gemini");
   assert.equal(settings.summary.autoGenerate, false);
   assert.equal(settings.summary.prompt, DEFAULT_SUMMARY_PROMPT);
-  assert.equal(settings.summary.codexModel, "gpt-6.1-sol");
+  assert.equal(settings.summary.codexModel, "gpt-6.2-sol");
   assert.equal(settings.summary.claudeModel, "opus");
 });
 
@@ -99,7 +99,7 @@ test("builds Vertex express-mode API key URLs without project or location", () =
       model: "google/gemini-3.1-pro-preview",
       stream: true,
     }),
-    "https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-3.1-pro-preview:streamGenerateContent?key=express+key%3A%2F%2B&alt=sse",
+    "https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-4-neon:streamGenerateContent?key=express+key%3A%2F%2B&alt=sse",
   );
 });
 
@@ -200,14 +200,14 @@ test("normalizes stored Vertex legacy model aliases", () => {
   });
 
   assert.equal(settings.providerSettings.vertex.model, "gemini-3.8-flash");
-  assert.equal(settings.summary.vertexModel, "gemini-3.1-pro-preview");
+  assert.equal(settings.summary.vertexModel, "gemini-4-neon");
 });
 
 test("Vertex provider exposes Model Garden Gemini model IDs", () => {
-  assert.equal(PROVIDERS.vertex.defaultModel, "gemini-3.8-flash");
+  assert.equal(PROVIDERS.vertex.defaultModel, "gemini-4-hydrogen");
   assert.deepEqual(
     PROVIDERS.vertex.models.map((model) => model.id),
-    ["gemini-3.1-pro-preview", "gemini-3.8-flash", "gemini-3.5-flash-lite"],
+    ["gemini-4-carbon", "gemini-4-neon", "gemini-4-hydrogen", "gemini-3.8-flash", "gemini-3.5-flash-lite"],
   );
   assert.equal(
     PROVIDERS.vertex.models.some((model) => model.id === "gemini-flash-latest"),

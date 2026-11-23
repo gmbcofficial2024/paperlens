@@ -1,7 +1,7 @@
 import { PROVIDERS } from "./providers";
 import { DISTRIBUTION_API_MODEL, IS_DISTRIBUTION } from "./distribution-policy";
 import { SseEventDecoder, type SseEvent } from "./sse";
-import { buildVertexApiKeyUrl, buildVertexBody } from "./vertex";
+import { buildVertexApiKeyUrl, buildVertexBody, isGemini4Model } from "./vertex";
 import type { ProviderId, ProviderSetting, TokenUsage } from "./types";
 
 export type ProviderOutputMode = "json" | "text";
@@ -71,7 +71,14 @@ export function prepareProviderRequest(options: ProviderCallOptions): PreparedPr
     : setting.model?.trim() || PROVIDERS[provider].defaultModel;
 
   switch (provider) {
-    case "gemini":
+    case "gemini": {
+      const generationConfig: Record<string, unknown> = {};
+      if (outputMode === "json") {
+        generationConfig.responseMimeType = "application/json";
+      }
+      if (isGemini4Model(model)) {
+        generationConfig.thinkingConfig = { thinkingLevel: "LOW" };
+      }
       return jsonRequest(
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:${stream ? "streamGenerateContent?alt=sse" : "generateContent"}`,
         {
@@ -81,11 +88,10 @@ export function prepareProviderRequest(options: ProviderCallOptions): PreparedPr
         {
           system_instruction: { parts: [{ text: systemPrompt }] },
           contents: [{ parts: [{ text: userPrompt }] }],
-          generationConfig: outputMode === "json"
-            ? { responseMimeType: "application/json" }
-            : {},
+          generationConfig,
         },
       );
+    }
 
     case "vertex":
       return jsonRequest(
@@ -95,6 +101,7 @@ export function prepareProviderRequest(options: ProviderCallOptions): PreparedPr
           systemPrompt,
           userPrompt,
           outputMode === "json" ? "application/json" : undefined,
+          model,
         ),
       );
 
@@ -107,7 +114,10 @@ export function prepareProviderRequest(options: ProviderCallOptions): PreparedPr
         },
         {
           model,
-          ...(model === "gpt-6-astra" || model === "gpt-6.1-sol"
+          ...(model === "gpt-6.2-astra"
+            || model === "gpt-6.2-sol"
+            || model === "gpt-6-astra"
+            || model === "gpt-6.1-sol"
             ? { reasoning_effort: "low" }
             : model === "gpt-6-luna"
               ? { reasoning_effort: "none", temperature: 0.3 }
@@ -133,7 +143,9 @@ export function prepareProviderRequest(options: ProviderCallOptions): PreparedPr
         {
           model,
           max_tokens: 16384,
-          ...(model === "claude-sonnet-5" ? { thinking: { type: "disabled" } } : {}),
+          ...(model === "claude-sonnet-5" || model === "claude-haiku-5-5"
+            ? { thinking: { type: "disabled" } }
+            : {}),
           ...(model === "claude-sonnet-5-5" ? { thinking: { type: "between_tools" } } : {}),
           ...(stream ? { stream: true } : {}),
           system: systemPrompt,

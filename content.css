@@ -15,7 +15,7 @@
   background: var(--pl-paper) !important;
   border: 1px solid var(--pl-line) !important;
   border-radius: 5px !important;
-  font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif !important;
+  font-family: var(--pl-font-family, "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif) !important;
   font-size: 15px !important;
   font-weight: 400 !important;
   line-height: 1.8 !important;
@@ -446,7 +446,7 @@
   border-radius: 0 5px 5px 0 !important;
   box-shadow: none !important;
   color: inherit !important;
-  font-family: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, -apple-system, sans-serif !important;
+  font-family: var(--pl-font-family, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, -apple-system, sans-serif) !important;
   font-size: 0.94em !important;
   font-style: normal !important;
   font-weight: 400 !important;
@@ -507,9 +507,27 @@ html[data-paperlens-font-scale="sm"] .paperlens-translation[data-paperlens-block
   font-size: 0.86em !important;
 }
 
+html[data-paperlens-font-scale="sm"] #paperlens-paper-summary.paperlens-summary .paperlens-summary-body p,
+html[data-paperlens-font-scale="sm"] #paperlens-paper-summary.paperlens-summary .paperlens-summary-body li {
+  font-size: 13.5px !important;
+}
+
+html[data-paperlens-font-scale="sm"] #paperlens-paper-summary.paperlens-summary .paperlens-summary-takeaway p {
+  font-size: 15.5px !important;
+}
+
 html[data-paperlens-font-scale="lg"] .paperlens-translation,
 html[data-paperlens-font-scale="lg"] .paperlens-translation[data-paperlens-block] {
   font-size: 1.05em !important;
+}
+
+html[data-paperlens-font-scale="lg"] #paperlens-paper-summary.paperlens-summary .paperlens-summary-body p,
+html[data-paperlens-font-scale="lg"] #paperlens-paper-summary.paperlens-summary .paperlens-summary-body li {
+  font-size: 16.5px !important;
+}
+
+html[data-paperlens-font-scale="lg"] #paperlens-paper-summary.paperlens-summary .paperlens-summary-takeaway p {
+  font-size: 18.5px !important;
 }
 
 @keyframes paperlens-pulse {

@@ -16,23 +16,41 @@ import {
   LEGACY_DEFAULT_SUMMARY_PROMPTS,
 } from "./summary-prompts";
 import { normalizeOptionalVertexModel } from "./vertex";
+import {
+  FONT_FAMILY_PRESETS,
+  FONT_SCALES,
+  normalizeFontScale,
+  sanitizeCustomFontFamily,
+  type FontFamilyPreset,
+} from "./typography";
+
+const GEMINI_MODEL_MIGRATIONS: Record<string, string> = {
+  "gemini-4-argon": "gemini-4-carbon",
+};
 
 const OPENAI_MODEL_MIGRATIONS: Record<string, string> = {
-  "gpt-5.6-sol": "gpt-6.1-sol",
-  "gpt-5.6-terra": "gpt-6.1-sol",
+  "gpt-6-astra": "gpt-6.2-astra",
+  "gpt-6.1-sol": "gpt-6.2-sol",
+  "gpt-6-sol": "gpt-6.2-sol",
+  "gpt-6.1-terra": "gpt-6.2-sol",
+  "gpt-5.6-sol": "gpt-6.2-sol",
+  "gpt-5.6-terra": "gpt-6.2-sol",
   "gpt-5.6-luna": "gpt-6-luna",
-  "gpt-4.1": "gpt-6.1-sol",
-  "gpt-4o": "gpt-6.1-sol",
+  "gpt-4.1": "gpt-6.2-sol",
+  "gpt-4o": "gpt-6.2-sol",
   "gpt-4o-mini": "gpt-6-luna",
-  "o3-mini": "gpt-6.1-sol",
+  "o3-mini": "gpt-6.2-sol",
 };
 
 const ANTHROPIC_MODEL_MIGRATIONS: Record<string, string> = {
+  "claude-fable-5-1": "claude-fable-5-2",
+  "claude-fable-5": "claude-fable-5-2",
   "claude-opus-4-8": "claude-opus-5-5",
   "claude-sonnet-5": "claude-sonnet-5-5",
+  "claude-haiku-4-5-20251001": "claude-haiku-5-5",
   "claude-opus-4-20250514": "claude-opus-5-5",
   "claude-sonnet-4-20250514": "claude-sonnet-5-5",
-  "claude-haiku-4-20250414": "claude-haiku-4-5-20251001",
+  "claude-haiku-4-20250414": "claude-haiku-5-5",
 };
 
 const providerSettingSchema = z.object({
@@ -78,6 +96,9 @@ export const settingsSchema = z.object({
   maxConcurrency: z.number().int().min(1).max(10).default(3),
   customPrompt: z.string().default(""),
   glossary: z.string().max(20_000).optional(),
+  fontFamily: z.enum(FONT_FAMILY_PRESETS).optional(),
+  customFontFamily: z.string().max(160).optional(),
+  fontScale: z.enum(FONT_SCALES).optional(),
   summary: summarySettingsSchema.default({
     provider: "gemini",
     autoGenerate: false,
@@ -116,12 +137,27 @@ export function mergeSettings(raw: unknown): ExtensionSettings {
     : {};
   const providerSettings = migrateProviderSettings(defaults.providerSettings, ps);
   const summary = mergeSummarySettings(defaults.summary, obj.summary);
-  return applyDistributionPolicy(settingsSchema.parse({
+  const rawFontFamily = typeof obj.fontFamily === "string" && (FONT_FAMILY_PRESETS as readonly string[]).includes(obj.fontFamily)
+    ? (obj.fontFamily as FontFamilyPreset)
+    : undefined;
+  const fontFamily = rawFontFamily && rawFontFamily !== "default" ? rawFontFamily : undefined;
+  const customFontFamily = fontFamily === "custom"
+    ? sanitizeCustomFontFamily(typeof obj.customFontFamily === "string" ? obj.customFontFamily : undefined)
+    : undefined;
+  const fontScale = normalizeFontScale(typeof obj.fontScale === "string" ? obj.fontScale : undefined);
+  const mergedInput: Record<string, unknown> = {
     ...defaults,
     ...obj,
     providerSettings,
     summary,
-  }));
+  };
+  if (fontFamily) mergedInput.fontFamily = fontFamily;
+  else delete mergedInput.fontFamily;
+  if (customFontFamily) mergedInput.customFontFamily = customFontFamily;
+  else delete mergedInput.customFontFamily;
+  if (fontScale) mergedInput.fontScale = fontScale;
+  else delete mergedInput.fontScale;
+  return applyDistributionPolicy(settingsSchema.parse(mergedInput));
 }
 
 function mergeSummarySettings(defaults: SummarySettings, rawSummary: unknown): SummarySettings {
@@ -132,7 +168,10 @@ function mergeSummarySettings(defaults: SummarySettings, rawSummary: unknown): S
   return {
     ...defaults,
     ...raw,
-    ...(raw.codexModel === "gpt-5.5" ? { codexModel: DEFAULT_CODEX_SUMMARY_MODEL } : {}),
+    ...(raw.codexModel === "gpt-5.5" || raw.codexModel === "gpt-6.1-sol"
+      ? { codexModel: DEFAULT_CODEX_SUMMARY_MODEL }
+      : {}),
+    ...(raw.geminiModel === "gemini-4-argon" ? { geminiModel: "gemini-4-carbon" } : {}),
     vertexModel,
     openaiModel: normalizeFixedModel("openai", raw.openaiModel, OPENAI_MODEL_MIGRATIONS),
     anthropicModel: normalizeFixedModel("anthropic", raw.anthropicModel, ANTHROPIC_MODEL_MIGRATIONS),
@@ -170,7 +209,7 @@ function migrateProviderSettings(
     ...merged,
     gemini: {
       ...gemini,
-      model: normalizeFixedModel("gemini", gemini.model),
+      model: normalizeFixedModel("gemini", gemini.model, GEMINI_MODEL_MIGRATIONS),
     },
     vertex: {
       ...vertex,

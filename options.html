@@ -201,6 +201,26 @@
       background: #e5f3ea;
       border-color: rgba(35, 129, 76, 0.45);
     }
+    .font-preview {
+      background: linear-gradient(90deg, rgba(35, 129, 76, 0.09), rgba(35, 129, 76, 0.02));
+      border-left: 3px solid #23814c;
+      border-radius: 0 6px 6px 0;
+      color: #1d2922;
+      font-family: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+      font-size: 14.5px;
+      line-height: 1.75;
+      margin-top: 6px;
+      padding: 10px 14px;
+      word-break: keep-all;
+    }
+    .font-preview-label {
+      color: #627067;
+      display: block;
+      font-family: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
     .btn-row {
       align-items: center;
       bottom: 0;
@@ -367,6 +387,36 @@
     <section class="panel">
       <div class="panel-header">
         <div>
+          <h2>Reading Appearance</h2>
+          <p class="panel-note">Customize the font family and default text size for inline translations and the summary card.</p>
+        </div>
+      </div>
+      <div class="grid">
+        <div class="field">
+          <label for="font-family">Font Family</label>
+          <select id="font-family"></select>
+          <div class="help-text">Uses fonts installed on your computer with zero external network requests.</div>
+        </div>
+        <div class="field">
+          <label for="font-scale">Default Font Size</label>
+          <select id="font-scale"></select>
+          <div class="help-text">Initial size for translations and summaries. Can still be toggled on any page with A- / A / A+.</div>
+        </div>
+        <div class="field field-wide hidden" id="custom-font-family-field">
+          <label for="custom-font-family">Custom Installed Font Name</label>
+          <input type="text" id="custom-font-family" placeholder="e.g., Pretendard, RIDIBatang, KoPubWorldBatang">
+          <div class="help-text">Enter one or more local font family names separated by commas. Standard Korean fallback fonts are appended automatically.</div>
+        </div>
+        <div class="field field-wide">
+          <span class="font-preview-label">Live Preview</span>
+          <div class="font-preview" id="font-preview">강유전체 Hf0.5Zr0.5O2 박막은 5 nm 두께에서도 안정적인 잔류 분극을 유지하며 낮은 동작 전압에서 재현성 있는 스위칭 특성을 보였다.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <div>
           <h2>Paper &amp; Article Summary</h2>
           <p class="panel-note">Uses the loaded source in one request, with a structure adapted to papers or ordinary articles.</p>
         </div>
@@ -392,9 +442,9 @@
       <div id="summary-codex-fields" class="grid">
         <div class="field">
           <label for="summary-codex-model">Codex Model</label>
-          <input type="text" id="summary-codex-model" list="summary-codex-models" placeholder="gpt-6.1-sol">
+          <input type="text" id="summary-codex-model" list="summary-codex-models" placeholder="gpt-6.2-sol">
           <datalist id="summary-codex-models"></datalist>
-          <div class="help-text">Default: gpt-6.1-sol. Choose a suggestion or enter a custom model ID. Passed as <code>codex exec -m</code>.</div>
+          <div class="help-text">Default: gpt-6.2-sol. Choose a suggestion or enter a custom model ID. Passed as <code>codex exec -m</code>.</div>
         </div>
       </div>
       <div id="summary-claude-fields" class="grid hidden">

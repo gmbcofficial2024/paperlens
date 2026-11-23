@@ -44,8 +44,8 @@ function staleSettings(currentProvider: ProviderId = "custom", summaryProvider: 
     currentProvider,
     providerSettings: {
       gemini: { apiKey: "saved-gemini-key", model: "gemini-pro-latest" },
-      vertex: { apiKey: "saved-vertex-key", model: "gemini-3.1-pro-preview" },
-      openai: { apiKey: "saved-openai-key", model: "gpt-6.1-sol" },
+      vertex: { apiKey: "saved-vertex-key", model: "gemini-4-neon" },
+      openai: { apiKey: "saved-openai-key", model: "gpt-6.2-sol" },
       anthropic: { apiKey: "saved-anthropic-key", model: "claude-sonnet-5-5" },
       custom: { apiKey: "saved-custom-key", model: "private-custom-model", customUrl: "https://dormant.example.test/private" },
     },
@@ -53,7 +53,7 @@ function staleSettings(currentProvider: ProviderId = "custom", summaryProvider: 
     summary: {
       provider: summaryProvider, autoGenerate: false, prompt: "Keep claims separate.",
       geminiApiKey: "saved-summary-key", geminiModel: "gemini-pro-latest",
-      vertexApiKey: "saved-summary-vertex-key", vertexModel: "gemini-3.1-pro-preview",
+      vertexApiKey: "saved-summary-vertex-key", vertexModel: "gemini-4-neon",
       codexModel: "saved-native-codex-model", claudeModel: "saved-native-claude-model",
     },
   };
@@ -103,19 +103,19 @@ async function flush() {
 
 const legacyOptionsCases = [
   {
-    openai: "gpt-5.6-sol", currentOpenai: "gpt-6.1-sol",
+    openai: "gpt-5.6-sol", currentOpenai: "gpt-6.2-sol",
     anthropic: "claude-opus-4-8", currentAnthropic: "claude-opus-5-5",
-    codex: "gpt-5.5", currentCodex: "gpt-6.1-sol",
+    codex: "gpt-5.5", currentCodex: "gpt-6.2-sol",
   },
   {
-    openai: "gpt-5.6-terra", currentOpenai: "gpt-6.1-sol",
+    openai: "gpt-5.6-terra", currentOpenai: "gpt-6.2-sol",
     anthropic: "claude-sonnet-5", currentAnthropic: "claude-sonnet-5-5",
     codex: "private-native-codex-model", currentCodex: "private-native-codex-model",
   },
   {
     openai: "gpt-5.6-luna", currentOpenai: "gpt-6-luna",
-    anthropic: "claude-haiku-4-5-20251001", currentAnthropic: "claude-haiku-4-5-20251001",
-    codex: undefined, currentCodex: "gpt-6.1-sol",
+    anthropic: "claude-haiku-4-5-20251001", currentAnthropic: "claude-haiku-5-5",
+    codex: undefined, currentCodex: "gpt-6.2-sol",
   },
 ];
 
@@ -234,7 +234,7 @@ test("shared Options retains every provider and fixes only Gemini model choices"
       assert.equal((page.document.getElementById("custom-model") as HTMLInputElement).disabled, false);
       assert.equal((page.document.getElementById("custom-url") as HTMLInputElement).disabled, false);
     } else {
-      assert.equal(model.options.length, provider === "anthropic" ? 4 : 3);
+      assert.equal(model.options.length, provider === "vertex" ? 5 : provider === "anthropic" ? 4 : 3);
       assert.notEqual(model.value, "gemini-flash-latest");
     }
     const summaryGemini = select(page.document, "summary-gemini-model");
@@ -271,7 +271,7 @@ for (const distribution of [false, true]) {
     assert.equal(sent.summary.provider, "vertex");
     assert.equal(sent.summary.vertexModel, undefined);
     assert.equal(sent.summary.geminiModel, distribution ? "gemini-flash-latest" : undefined);
-    assert.equal(sent.providerSettings.vertex.model, "gemini-3.1-pro-preview");
+    assert.equal(sent.providerSettings.vertex.model, "gemini-4-neon");
     assert.equal(sent.summary.vertexApiKey, "saved-summary-vertex-key");
     const persisted = mergeSettings(sent);
     page.updates[0].respond({ ok: true, settings: persisted });
@@ -285,9 +285,9 @@ for (const distribution of [false, true]) {
     const baseline = staleSettings("anthropic", "openai");
     baseline.providerSettings.custom.customUrl = undefined;
     baseline.summary.openaiApiKey = "saved-summary-openai";
-    baseline.summary.openaiModel = "gpt-6-astra";
+    baseline.summary.openaiModel = "gpt-6.2-astra";
     baseline.summary.anthropicApiKey = "saved-summary-anthropic";
-    baseline.summary.anthropicModel = "claude-fable-5-1";
+    baseline.summary.anthropicModel = "claude-fable-5-2";
     const page = await harness(baseline, distribution);
     const summaryProvider = select(page.document, "summary-provider");
     const openaiKey = page.document.getElementById("summary-openai-api-key") as HTMLInputElement;
@@ -298,10 +298,10 @@ for (const distribution of [false, true]) {
     assert.equal(page.document.getElementById("summary-openai-fields")!.classList.contains("hidden"), false);
     assert.equal(openaiKey.value, "saved-summary-openai");
     assert.equal(anthropicKey.value, "saved-summary-anthropic");
-    assert.equal(openaiModel.value, "gpt-6-astra");
-    assert.equal(anthropicModel.value, "claude-fable-5-1");
-    assert.deepEqual([...openaiModel.options].map((option) => option.value), ["", "gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna"]);
-    assert.deepEqual([...anthropicModel.options].map((option) => option.value), ["", "claude-fable-5-1", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-4-5-20251001"]);
+    assert.equal(openaiModel.value, "gpt-6.2-astra");
+    assert.equal(anthropicModel.value, "claude-fable-5-2");
+    assert.deepEqual([...openaiModel.options].map((option) => option.value), ["", "gpt-6.2-astra", "gpt-6.2-sol", "gpt-6-luna"]);
+    assert.deepEqual([...anthropicModel.options].map((option) => option.value), ["", "claude-fable-5-2", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"]);
     for (const provider of ["openai", "anthropic"]) {
       assert.match(page.document.getElementById(`summary-${provider}-key-fallback-help`)!.textContent ?? "", new RegExp(`saved translation ${provider === "openai" ? "OpenAI" : "Anthropic"} key`));
     }
@@ -357,9 +357,9 @@ for (const distribution of [false, true]) {
     const baseline = staleSettings("gemini", "anthropic");
     baseline.providerSettings.custom.customUrl = undefined;
     baseline.summary.openaiApiKey = "clear-summary-openai";
-    baseline.summary.openaiModel = "gpt-6-astra";
+    baseline.summary.openaiModel = "gpt-6.2-astra";
     baseline.summary.anthropicApiKey = "clear-summary-anthropic";
-    baseline.summary.anthropicModel = "claude-fable-5-1";
+    baseline.summary.anthropicModel = "claude-fable-5-2";
     const page = await harness(baseline, distribution);
     for (const provider of ["openai", "anthropic"]) {
       const model = select(page.document, `summary-${provider}-model`);
@@ -398,7 +398,7 @@ test("shared provider switching and Save preserve editable non-Gemini drafts wit
     providerSelect.dispatchEvent(new page.window.Event("change"));
   };
   apiKey.value = "  edited-openai-key  ";
-  model.value = "gpt-6.1-sol";
+  model.value = "gpt-6.2-sol";
   changeProvider("gemini");
   apiKey.value = "  edited-gemini-key  ";
   assert.equal(model.value, "gemini-flash-latest");
@@ -428,7 +428,7 @@ test("shared provider switching and Save preserve editable non-Gemini drafts wit
   assert.equal(saved.summary.codexModel, "saved-native-codex-model");
   assert.equal(saved.summary.claudeModel, "saved-native-claude-model");
   assert.equal(saved.providerSettings.openai.apiKey, "edited-openai-key");
-  assert.equal(saved.providerSettings.openai.model, "gpt-6.1-sol");
+  assert.equal(saved.providerSettings.openai.model, "gpt-6.2-sol");
   assert.equal(saved.providerSettings.anthropic.apiKey, "saved-anthropic-key");
   assert.equal(saved.providerSettings.vertex.apiKey, "edited-vertex-key");
   assert.equal(saved.providerSettings.vertex.model, "gemini-3.8-flash");
@@ -442,7 +442,7 @@ test("shared provider switching and Save preserve editable non-Gemini drafts wit
   assert.equal(providerSelect.disabled, false);
   assert.equal(providerSelect.value, "openai");
   assert.equal(model.disabled, false);
-  assert.equal(model.value, "gpt-6.1-sol");
+  assert.equal(model.value, "gpt-6.2-sol");
   assert.equal(select(page.document, "summary-vertex-model").disabled, false);
   assert.equal(select(page.document, "summary-gemini-model").disabled, true);
   assert.equal(select(page.document, "summary-gemini-model").value, "gemini-flash-latest");
@@ -487,7 +487,7 @@ test("development Options retains original provider and model selection without 
   assert.equal(select(page.document, "provider").value, "openai");
   assert.equal(select(page.document, "provider").disabled, false);
   assert.equal(select(page.document, "model").disabled, false);
-  assert.equal(select(page.document, "summary-gemini-model").options.length, 4);
+  assert.equal(select(page.document, "summary-gemini-model").options.length, 7);
   assert.equal(select(page.document, "summary-provider").value, "vertex");
   for (const id of ["translation-distribution-model-note", "summary-distribution-model-note"]) {
     assert.equal(page.document.getElementById(id)?.classList.contains("hidden"), true);

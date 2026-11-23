@@ -48,7 +48,7 @@ export function withCanaryOutputLimit(provider, body) {
     const reasoning = body.reasoning_effort && body.reasoning_effort !== "none";
     return { ...body, max_completion_tokens: reasoning ? 1024 : 16 };
   }
-  const alwaysThinking = body.model === "claude-opus-5-5" || body.model === "claude-fable-5-1";
+  const alwaysThinking = body.model === "claude-opus-5-5" || body.model === "claude-fable-5-2";
   return { ...body, max_tokens: alwaysThinking ? 1024 : 16 };
 }
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.1
+
+- Refresh provider model catalogs to the latest official lineups (checked 2026-11-23): add Gemini 4 (`gemini-4-carbon`, `gemini-4-neon`, `gemini-4-hydrogen`) alongside `gemini-3.8-flash` and `gemini-3.5-flash-lite` on Vertex AI (with `gemini-4-hydrogen` default and `thinkingConfig.thinkingLevel = "LOW"` on Gemini 4 models) and in source Gemini API builds, update OpenAI to `gpt-6.2-astra`, `gpt-6.2-sol` (default, also native Codex summary default), and `gpt-6-luna`, and update Anthropic to `claude-fable-5-2`, `claude-opus-5-5`, `claude-sonnet-5-5`, and `claude-haiku-5-5` (with `thinking.type = "disabled"` for fast low-latency Haiku output).
+- Migrate saved older model presets cleanly (`gemini-3.1-pro-preview` -> `gemini-4-neon`, `gemini-4-argon` -> `gemini-4-carbon`, `gpt-6-astra` -> `gpt-6.2-astra`, `gpt-6.1-sol`/`gpt-6.1-terra` -> `gpt-6.2-sol`, `claude-fable-5-1` -> `claude-fable-5-2`, `claude-haiku-4-5-20251001` -> `claude-haiku-5-5`, and previous Codex default `gpt-6.1-sol` -> `gpt-6.2-sol`) while preserving every provider selection, credential, custom server setting, and economical Flash/Flash-Lite tier. Shared Releases continue fixing only Google Gemini API to `gemini-flash-latest`.
+- Add Reading Appearance typography controls in Settings: Korean/academic font family presets (Pretendard, Malgun Gothic, Noto Sans KR, NanumGothic, Serif/Myeongjo, System UI, Match article page font, plus sanitized custom installed local font names with zero external network requests), persistent default font scale (`Small` / `Default` / `Large`) applied to both inline translations and the summary card, live typography preview in Settings, and live updates to open article tabs without invalidating translation caches.
+
 ## 1.2.0
 
 - Prioritize visible viewport sections first, use a smaller initial three-paragraph batch for faster first-paint translation, and stream paragraph translations incrementally as chunks arrive.
