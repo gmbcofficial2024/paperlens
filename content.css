@@ -423,56 +423,100 @@
     padding-bottom: 10px !important;
   }
 }
-.paperlens-translation {
-  background: linear-gradient(90deg, rgba(35, 129, 76, 0.08), rgba(35, 129, 76, 0.015));
-  border-left: 3px solid #23814c;
-  border-radius: 0 5px 5px 0;
-  box-sizing: border-box;
-  color: #38443c;
-  font-family: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-  font-size: 0.94em;
-  font-style: normal;
-  line-height: 1.72;
-  margin-bottom: 13px;
-  margin-top: 5px;
-  padding: 6px 11px 7px;
+.paperlens-translation,
+.paperlens-translation[data-paperlens-block] {
+  --pl-tr-bg-start: rgba(35, 129, 76, 0.09);
+  --pl-tr-bg-end: rgba(35, 129, 76, 0.02);
+  --pl-tr-border: #23814c;
+  --pl-tr-error-bg-start: rgba(180, 35, 24, 0.1);
+  --pl-tr-error-bg-end: rgba(180, 35, 24, 0.02);
+  --pl-tr-error: #b42318;
+  display: block;
+  box-sizing: border-box !important;
+  float: none !important;
+  clear: both !important;
+  position: static !important;
+  width: auto !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  height: auto !important;
+  background: linear-gradient(90deg, var(--pl-tr-bg-start), var(--pl-tr-bg-end)) !important;
+  border: 0 !important;
+  border-left: 3px solid var(--pl-tr-border) !important;
+  border-radius: 0 5px 5px 0 !important;
+  box-shadow: none !important;
+  color: inherit !important;
+  font-family: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, -apple-system, sans-serif !important;
+  font-size: 0.94em !important;
+  font-style: normal !important;
+  font-weight: 400 !important;
+  font-variant: normal !important;
+  letter-spacing: -0.01em !important;
+  word-spacing: normal !important;
+  line-height: 1.75 !important;
+  text-align: left !important;
+  text-indent: 0 !important;
+  text-transform: none !important;
+  text-decoration: none !important;
+  white-space: normal !important;
+  overflow-wrap: break-word !important;
+  word-break: keep-all !important;
+  writing-mode: horizontal-tb !important;
+  direction: ltr !important;
+  vertical-align: baseline !important;
+  margin: 6px 0 14px 0 !important;
+  padding: 7px 12px 8px !important;
   transition: background-color 0.18s ease, border-color 0.18s ease, opacity 0.2s ease;
 }
 
-.paperlens-translation.paperlens-skeleton {
-  color: #7b8780;
+.paperlens-translation.paperlens-translation--contained,
+.paperlens-translation[data-paperlens-block].paperlens-translation--contained {
+  margin: 6px 0 2px 0 !important;
+  padding: 6px 10px 7px !important;
+}
+
+.paperlens-translation.paperlens-hidden,
+.paperlens-translation[data-paperlens-block].paperlens-hidden {
+  display: none !important;
+}
+
+.paperlens-translation.paperlens-skeleton,
+.paperlens-translation[data-paperlens-block].paperlens-skeleton {
+  opacity: 0.72;
   animation: paperlens-pulse 1.5s ease-in-out infinite;
 }
 
 @keyframes paperlens-pulse {
-  0%, 100% { opacity: 0.58; }
-  50% { opacity: 1; }
+  0%, 100% { opacity: 0.52; }
+  50% { opacity: 0.9; }
 }
 
-.paperlens-translation.paperlens-error {
-  background: linear-gradient(90deg, rgba(180, 35, 24, 0.08), rgba(180, 35, 24, 0.015));
-  border-left-color: #b42318;
-  color: #b42318;
+.paperlens-translation.paperlens-error,
+.paperlens-translation[data-paperlens-block].paperlens-error {
+  background: linear-gradient(90deg, var(--pl-tr-error-bg-start), var(--pl-tr-error-bg-end)) !important;
+  border-left-color: var(--pl-tr-error) !important;
+  color: var(--pl-tr-error) !important;
 }
 
 .paperlens-retry-btn {
-  background: #fff;
-  border: 1px solid #b42318;
-  border-radius: 999px;
-  color: #b42318;
-  cursor: pointer;
-  display: inline-block;
-  font-family: ui-sans-serif, "Segoe UI", system-ui, sans-serif;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1;
-  margin-left: 8px;
-  padding: 5px 10px;
-  vertical-align: middle;
+  background: #fff !important;
+  border: 1px solid #b42318 !important;
+  border-radius: 999px !important;
+  color: #b42318 !important;
+  cursor: pointer !important;
+  display: inline-block !important;
+  font-family: ui-sans-serif, "Segoe UI", system-ui, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  margin: 0 0 0 8px !important;
+  padding: 5px 10px !important;
+  vertical-align: middle !important;
+  text-transform: none !important;
 }
 
 .paperlens-retry-btn:hover {
-  background: #fff1f0;
+  background: #fff1f0 !important;
 }
 
 /* Sentence-level highlighting */

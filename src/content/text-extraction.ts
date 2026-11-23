@@ -1,26 +1,17 @@
+import {
+  SOURCE_UI_SELECTOR,
+  VISUALLY_HIDDEN_CLASS_SELECTOR,
+  isVisuallyHiddenStyle,
+} from "./content-policy";
+
+export { SOURCE_UI_SELECTOR };
+
+const NON_SOURCE_TEXT_SELECTOR = `script, style, template, noscript, ${SOURCE_UI_SELECTOR}`;
+
 export function extractParagraphText(el: HTMLElement): string {
   if (el.tagName === "TABLE") return extractTableText(el);
   return visibleText(el).trim();
 }
-
-// Unconditional UI exclusions are shared by collection and serialization.
-// Header/footer landmarks need article ownership and are classified separately.
-export const SOURCE_UI_SELECTOR = [
-  "nav", "form", "button", "dialog", "[role='navigation']", "[role='dialog']", "[role='button']",
-  ".site-header", ".site-footer", "#site-header", "#site-footer",
-  ".paperlens-translation", ".paperlens-summary", "[data-paperlens-ui]",
-  ".sidebar", ".comments", ".cookie", ".modal", ".popup", ".tooltip",
-  ".advertisement", ".ad-container", ".related-content", ".related-articles",
-  ".recommended-articles", ".RelatedArticles", ".collateral", ".embedded-form",
-  ".author-info", ".author-group", ".AuthorGroups", ".contrib-group", ".affiliations",
-  ".c-article-identifiers", "[data-test='article-identifier']",
-  ".c-article-author-list-container", ".c-article-author-list", "[data-test='authors-list']",
-  ".c-article-authors-listing", "[data-test='author-info']",
-  ".byline", ".article-meta", ".metrics", ".article-metrics", ".keywords", ".copyright", ".license",
-  ".fig-modal", "figshare-widget", "[class*='figshare']", ".sticky-table-of-contents",
-  "#reading-assistant-container", "#issue-navigation",
-].join(",");
-const NON_SOURCE_TEXT_SELECTOR = `script, style, template, noscript, ${SOURCE_UI_SELECTOR}`;
 
 export function isMagazineArticleHeader(element: Element): boolean {
   return element.matches("header") && [...element.querySelectorAll("h1.c-article-magazine-title")]
@@ -32,14 +23,27 @@ export function isSourceHidden(element: Element, cache = new WeakMap<Element, bo
   let result = false;
   for (let current: Element | null = element; current; current = current.parentElement) {
     const cached = cache.get(current);
-    if (cached !== undefined) { result = cached; break; }
+    if (cached !== undefined) {
+      result = cached;
+      break;
+    }
     chain.push(current);
-    if (current.hasAttribute("hidden") || current.getAttribute("aria-hidden") === "true" ||
-      /(?:display\s*:\s*none|visibility\s*:\s*hidden)/i.test(current.getAttribute("style") ?? "")) { result = true; break; }
+    if (
+      current.hasAttribute("hidden") ||
+      current.getAttribute("aria-hidden") === "true" ||
+      current.matches(VISUALLY_HIDDEN_CLASS_SELECTOR) ||
+      /(?:display\s*:\s*none|visibility\s*:\s*hidden)/i.test(current.getAttribute("style") ?? "")
+    ) {
+      result = true;
+      break;
+    }
     if (typeof window !== "undefined" && typeof window.getComputedStyle === "function") {
       try {
         const style = window.getComputedStyle(current);
-        if (style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse") { result = true; break; }
+        if (isVisuallyHiddenStyle(style)) {
+          result = true;
+          break;
+        }
       } catch {
         // Detached/test DOMs may not expose a layout engine.
       }
@@ -49,8 +53,8 @@ export function isSourceHidden(element: Element, cache = new WeakMap<Element, bo
   return result;
 }
 
-function excludedText(element: Element): boolean {
-  if (isSourceHidden(element)) return true;
+function excludedText(element: Element, hiddenCache?: WeakMap<Element, boolean>): boolean {
+  if (isSourceHidden(element, hiddenCache)) return true;
   for (let current: Element | null = element; current; current = current.parentElement) {
     if (current.matches(NON_SOURCE_TEXT_SELECTOR) || isMagazineArticleHeader(current)) return true;
   }
@@ -58,14 +62,20 @@ function excludedText(element: Element): boolean {
 }
 
 function visibleText(element: Element): string {
-  if (excludedText(element)) return "";
+  const hiddenCache = new WeakMap<Element, boolean>();
+  if (excludedText(element, hiddenCache)) return "";
   const stack: Node[] = [...element.childNodes].reverse();
   const parts: string[] = [];
   while (stack.length > 0) {
     const node = stack.pop()!;
-    if (node.nodeType === 3) { parts.push(node.textContent ?? ""); continue; }
-    if (node.nodeType !== 1 || excludedText(node as Element)) continue;
-    for (let index = node.childNodes.length - 1; index >= 0; index -= 1) stack.push(node.childNodes[index]);
+    if (node.nodeType === 3) {
+      parts.push(node.textContent ?? "");
+      continue;
+    }
+    if (node.nodeType !== 1 || excludedText(node as Element, hiddenCache)) continue;
+    for (let index = node.childNodes.length - 1; index >= 0; index -= 1) {
+      stack.push(node.childNodes[index]);
+    }
   }
   return parts.join("");
 }
@@ -100,7 +110,9 @@ function extractTableText(table: HTMLElement): string {
   const columnCount = Math.max(0, ...grid.map((row) => row.length));
   const headers = Array.from({ length: columnCount }, (_, column) => {
     const headerCells = new Set<Element>();
-    rows.forEach((element, row) => { if (isHeader[row] && !excludedText(element) && grid[row][column]) headerCells.add(grid[row][column]); });
+    rows.forEach((element, row) => {
+      if (isHeader[row] && !excludedText(element) && grid[row][column]) headerCells.add(grid[row][column]);
+    });
     return [...headerCells].map(text).filter(Boolean).join(" / ");
   });
   if (headers.some(Boolean)) lines.push(headers.join(" | "));

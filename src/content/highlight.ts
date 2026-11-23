@@ -1,63 +1,141 @@
 import type { SentenceAlignment } from "../shared/types";
+import { isSourceHidden } from "./text-extraction";
 
 const SENTENCE_CLASS = "paperlens-sentence";
 const HIGHLIGHT_CLASS = "paperlens-highlight";
 const GAP_CLASS = "paperlens-sentence-gap"; // unmatched text, no cross-highlight
 
+const SKIP_WRAP_SUBTREE_SELECTOR = [
+  ".paperlens-translation",
+  ".paperlens-summary",
+  "[data-paperlens-ui]",
+  "script", "style", "template", "noscript", "svg", "canvas",
+  "button", "input", "select", "textarea",
+].join(",");
+
+// Math elements remain part of sentence text for alignment offsets,
+// but their internal DOM nodes are never mutated or wrapped.
+const ATOMIC_UNWRAPPABLE_SELECTOR =
+  "math, mjx-container, .MathJax, .katex, [role='math']";
+
 // ---------------------------------------------------------------------------
-// TreeWalker-based text position mapping
+// Safe text-node collection (skips PaperLens UI, hidden nodes, controls, math)
 // ---------------------------------------------------------------------------
 
-function getTextNodes(el: Node): Text[] {
-  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-  const nodes: Text[] = [];
-  while (walker.nextNode()) {
-    nodes.push(walker.currentNode as Text);
-  }
-  return nodes;
+interface IndexedTextNode {
+  node: Text;
+  start: number;
+  end: number;
 }
 
-// Build a Range covering textContent[start..end) across arbitrary inline elements.
-function createRangeForSlice(el: HTMLElement, start: number, end: number): Range | null {
-  const textNodes = getTextNodes(el);
-  const range = document.createRange();
+function collectHighlightableTextNodes(root: HTMLElement): {
+  nodes: IndexedTextNode[];
+  fullText: string;
+} {
+  const hiddenCache = new WeakMap<Element, boolean>();
+  const nodes: IndexedTextNode[] = [];
+  const parts: string[] = [];
   let offset = 0;
-  let startSet = false;
-  let totalLen = 0;
-  for (const node of textNodes) totalLen += node.length;
-  const clampedEnd = Math.min(end, totalLen);
 
-  for (const node of textNodes) {
-    const len = node.length;
-    if (!startSet && offset + len > start) {
-      range.setStart(node, start - offset);
-      startSet = true;
+  const stack: Array<{ node: Node; atomic: boolean }> = [...root.childNodes]
+    .reverse()
+    .map((node) => ({ node, atomic: false }));
+
+  while (stack.length > 0) {
+    const { node: current, atomic } = stack.pop()!;
+    if (current.nodeType === 3) {
+      const textNode = current as Text;
+      const value = textNode.data;
+      if (value.length > 0) {
+        if (!atomic) {
+          nodes.push({ node: textNode, start: offset, end: offset + value.length });
+        }
+        parts.push(value);
+        offset += value.length;
+      }
+      continue;
     }
-    if (startSet && offset + len >= clampedEnd) {
-      range.setEnd(node, clampedEnd - offset);
-      return range;
+    if (current.nodeType !== 1) continue;
+    const element = current as Element;
+    if (element.matches(SKIP_WRAP_SUBTREE_SELECTOR) || isSourceHidden(element, hiddenCache)) {
+      continue;
     }
-    offset += len;
+    const childAtomic = atomic || element.matches(ATOMIC_UNWRAPPABLE_SELECTOR);
+    for (let index = element.childNodes.length - 1; index >= 0; index -= 1) {
+      stack.push({ node: element.childNodes[index], atomic: childAtomic });
+    }
   }
-  // If start was set but end exceeds all text, clamp to last node
-  if (startSet && textNodes.length > 0) {
-    const lastNode = textNodes[textNodes.length - 1];
-    range.setEnd(lastNode, lastNode.length);
-    return range;
-  }
-  return null;
+
+  return { nodes, fullText: parts.join("") };
 }
 
-function wrapRangeWithSpan(range: Range, idx: number, className: string = SENTENCE_CLASS): void {
-  const span = document.createElement("span");
-  span.className = className;
-  span.setAttribute("data-sentence-idx", String(idx));
-  try {
-    const fragment = range.extractContents();
-    span.appendChild(fragment);
-    range.insertNode(span);
-  } catch {
-    // skip if wrapping fails
+interface TextSliceOp {
+  node: Text;
+  localStart: number;
+  localEnd: number;
+  idx: number;
+  className: string;
+}
+
+// Wrap text-node slices in-place without detaching or splitting surrounding
+// publisher elements (<a>, <sup>, <em>, interactive widgets, math formulas).
+function applyTextSliceWraps(
+  indexedNodes: readonly IndexedTextNode[],
+  spans: ReadonlyArray<{ idx: number; start: number; end: number; className: string }>,
+): void {
+  const opsByNode = new Map<Text, TextSliceOp[]>();
+
+  for (const span of spans) {
+    for (const entry of indexedNodes) {
+      if (entry.end <= span.start) continue;
+      if (entry.start >= span.end) break;
+
+      const localStart = Math.max(0, span.start - entry.start);
+      const localEnd = Math.min(entry.node.data.length, span.end - entry.start);
+      if (localEnd <= localStart) continue;
+
+      let ops = opsByNode.get(entry.node);
+      if (!ops) {
+        ops = [];
+        opsByNode.set(entry.node, ops);
+      }
+      ops.push({
+        node: entry.node,
+        localStart,
+        localEnd,
+        idx: span.idx,
+        className: span.className,
+      });
+    }
+  }
+
+  for (const [textNode, ops] of opsByNode) {
+    const parent = textNode.parentNode;
+    if (!parent) continue;
+
+    ops.sort((a, b) => a.localStart - b.localStart);
+    const data = textNode.data;
+    const fragment = document.createDocumentFragment();
+    let cursor = 0;
+
+    for (const op of ops) {
+      if (op.localStart < cursor) continue;
+      if (op.localStart > cursor) {
+        fragment.appendChild(document.createTextNode(data.slice(cursor, op.localStart)));
+      }
+      const wrapper = document.createElement("span");
+      wrapper.className = op.className;
+      wrapper.setAttribute("data-sentence-idx", String(op.idx));
+      wrapper.textContent = data.slice(op.localStart, op.localEnd);
+      fragment.appendChild(wrapper);
+      cursor = op.localEnd;
+    }
+
+    if (cursor < data.length) {
+      fragment.appendChild(document.createTextNode(data.slice(cursor)));
+    }
+
+    parent.replaceChild(fragment, textNode);
   }
 }
 
@@ -155,14 +233,14 @@ function splitGapIntoSentences(text: string): string[] {
 }
 
 // ---------------------------------------------------------------------------
-// Wrap original paragraph sentences using Range API
+// Wrap original paragraph sentences in-place on safe text nodes
 // ---------------------------------------------------------------------------
 
 function wrapOriginalSentences(
   el: HTMLElement,
   alignment: SentenceAlignment[],
 ): { matchedCount: number; gapIndices: number[] } {
-  const fullText = el.textContent ?? "";
+  const { nodes: indexedNodes, fullText } = collectHighlightableTextNodes(el);
   if (!fullText.trim()) return { matchedCount: 0, gapIndices: [] };
 
   // Phase 1: find positions for all alignment sentences
@@ -185,14 +263,12 @@ function wrapOriginalSentences(
   // Phase 2: find gap regions (uncovered text between/after matched sentences)
   const gaps: Array<{ start: number; end: number }> = [];
 
-  // Gap before first match
   if (positions[0].start > 0) {
     const gapText = fullText.slice(0, positions[0].start).trim();
     if (gapText.length > 20) {
       gaps.push({ start: 0, end: positions[0].start });
     }
   }
-  // Gaps between matches
   for (let i = 0; i < positions.length - 1; i++) {
     const gapStart = positions[i].end;
     const gapEnd = positions[i + 1].start;
@@ -203,7 +279,6 @@ function wrapOriginalSentences(
       }
     }
   }
-  // Gap after last match
   const lastEnd = positions[positions.length - 1].end;
   if (lastEnd < fullText.length) {
     const gapText = fullText.slice(lastEnd).trim();
@@ -213,7 +288,7 @@ function wrapOriginalSentences(
   }
 
   // Phase 3: split gaps into sentences and assign indices
-  let nextIdx = alignment.length; // gap sentences get indices after alignment
+  let nextIdx = alignment.length;
   const gapPositions: Array<{ idx: number; start: number; end: number }> = [];
   const gapIndices: number[] = [];
 
@@ -233,18 +308,16 @@ function wrapOriginalSentences(
     }
   }
 
-  // Phase 4: merge and wrap everything in reverse order
-  const allPositions = [...positions, ...gapPositions].sort((a, b) => a.start - b.start);
-  const textLen = fullText.length;
+  // Phase 4: wrap text slices in-place without mutating surrounding elements
+  const gapSet = new Set(gapIndices);
+  const allSpans = [...positions, ...gapPositions]
+    .sort((a, b) => a.start - b.start)
+    .map((item) => ({
+      ...item,
+      className: gapSet.has(item.idx) ? `${SENTENCE_CLASS} ${GAP_CLASS}` : SENTENCE_CLASS,
+    }));
 
-  for (let p = allPositions.length - 1; p >= 0; p--) {
-    const { idx, start, end } = allPositions[p];
-    const range = createRangeForSlice(el, start, Math.min(end, textLen));
-    if (range) {
-      const isGap = gapIndices.includes(idx);
-      wrapRangeWithSpan(range, idx, isGap ? `${SENTENCE_CLASS} ${GAP_CLASS}` : SENTENCE_CLASS);
-    }
-  }
+  applyTextSliceWraps(indexedNodes, allSpans);
 
   return { matchedCount: positions.length, gapIndices };
 }
@@ -269,17 +342,12 @@ function wrapTranslationSentences(
     hasContent = true;
   }
 
-  // If there are gap sentences in the original, try to extract remaining translation text.
-  // The full translation may contain text beyond what alignment covers.
   if (gapIndices.length > 0 && fullTranslation) {
-    // Compute what alignment already covers
     const alignedText = alignment.map((a) => normalizeWS(a.translated ?? "")).join(" ");
     const fullNorm = normalizeWS(fullTranslation);
 
-    // Find unmatched tail in translation
     let remainingTranslation = "";
     if (fullNorm.length > alignedText.length) {
-      // Try to find where aligned text ends in full translation
       const lastAligned = alignment[alignment.length - 1]?.translated?.trim();
       if (lastAligned) {
         const lastIdx = fullTranslation.lastIndexOf(lastAligned);
@@ -290,7 +358,6 @@ function wrapTranslationSentences(
     }
 
     if (remainingTranslation) {
-      // Split remaining into sentences and assign to gap indices
       const remSentences = splitGapIntoSentences(remainingTranslation);
       for (let g = 0; g < gapIndices.length && g < remSentences.length; g++) {
         appendSentenceSpan(fragment, remSentences[g], gapIndices[g], `${SENTENCE_CLASS} ${GAP_CLASS}`);
@@ -332,7 +399,6 @@ export function wrapSentences(
 ): void {
   if (!alignment.length) return;
 
-  // Pair ID for scope lookup
   const pairId =
     originalEl.getAttribute("data-paperlens-id") ??
     `pair-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -364,14 +430,12 @@ export function enableCrossHighlight(): void {
   document.addEventListener("mouseout", onMouseOut, true);
 }
 
-// Use .closest() instead of a fixed-depth walk — handles any nesting depth
 function getSentenceSpan(e: Event): HTMLElement | null {
   const el = e.target as HTMLElement;
   if (!el?.closest) return null;
   return el.closest(`.${SENTENCE_CLASS}`) as HTMLElement | null;
 }
 
-// Track currently highlighted pair+idx to avoid redundant DOM queries
 let activePairId: string | null = null;
 let activeIdx: string | null = null;
 
@@ -386,10 +450,8 @@ function onMouseOver(e: Event): void {
   if (!pairEl) return;
   const pairId = pairEl.getAttribute("data-paperlens-pair")!;
 
-  // Already highlighting this exact pair — skip redundant query
   if (activePairId === pairId && activeIdx === idx) return;
 
-  // Clear previous highlight if switching to different sentence
   if (activePairId !== null) {
     clearActive();
   }
@@ -407,14 +469,10 @@ function onMouseOut(e: Event): void {
   const span = getSentenceSpan(e);
   if (!span) return;
 
-  // Check relatedTarget: if we're moving to another element within the same
-  // sentence span, don't remove the highlight (prevents flicker with nested
-  // inline elements like <sup>, <a>, <i>, <sub>).
   const me = e as MouseEvent;
   const related = me.relatedTarget as Node | null;
   if (related && span.contains(related)) return;
 
-  // Also check if relatedTarget is in the paired sentence span (same idx, same pair)
   if (related) {
     const relatedSpan = (related as HTMLElement).closest?.(`.${SENTENCE_CLASS}`);
     if (relatedSpan) {

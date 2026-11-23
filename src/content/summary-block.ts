@@ -1,4 +1,5 @@
 import { renderSafeSummary } from "./safe-summary-renderer";
+import { isHorizontalFlex, isMultiTrackGrid } from "./translation-targets";
 
 const SUMMARY_BLOCK_ID = "paperlens-paper-summary";
 const BODY_ID = "paperlens-paper-summary-body";
@@ -55,6 +56,42 @@ function findSummaryInsertionAnchor(): Element | null {
     "#abstracts", "#abstract", "#Abs1", "[id^='Abs']", ".Abstracts", ".abstract",
     "section[aria-labelledby*='abstract' i]", "section[id*='abstract' i]", "article", "main",
   ].join(", "));
+}
+
+function resolveSummaryPlacement(anchor: Element): { target: Element; position: "before" | "after" } {
+  let target = anchor;
+  let position: "before" | "after" = "before";
+
+  const header = target.closest("header");
+  if (header && header !== document.body && header.parentNode) {
+    target = header;
+    position = "after";
+  }
+
+  // Ascend out of structural containers where inserting a <section> would create
+  // invalid HTML or break list/table/figure layouts.
+  const structuralContainer = target.closest("ul, ol, dl, table, figure");
+  if (structuralContainer && structuralContainer.parentNode) {
+    target = structuralContainer;
+    position = "before";
+  }
+
+  if (typeof window !== "undefined" && typeof window.getComputedStyle === "function") {
+    let guard = 0;
+    while (target.parentElement && target.parentElement !== document.body && guard < 4) {
+      try {
+        const parentStyle = window.getComputedStyle(target.parentElement);
+        if (!isHorizontalFlex(parentStyle) && !isMultiTrackGrid(parentStyle)) break;
+        target = target.parentElement;
+        position = "before";
+      } catch {
+        break;
+      }
+      guard += 1;
+    }
+  }
+
+  return { target, position };
 }
 
 function element<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text?: string): HTMLElementTagNameMap[K] {
@@ -197,8 +234,16 @@ export function createSummaryBlock(options: SummaryBlockOptions = {}): HTMLEleme
   updateState(block, state);
   if (!existing || options.insertionAnchor?.isConnected) {
     const anchor = options.insertionAnchor?.isConnected ? options.insertionAnchor : findSummaryInsertionAnchor();
-    if (anchor?.parentNode) anchor.parentNode.insertBefore(block, anchor);
-    else document.body.prepend(block);
+    if (anchor?.parentNode) {
+      const placement = resolveSummaryPlacement(anchor);
+      if (placement.position === "after") {
+        placement.target.after(block);
+      } else {
+        placement.target.parentNode?.insertBefore(block, placement.target);
+      }
+    } else {
+      document.body.prepend(block);
+    }
   }
   return block;
 }

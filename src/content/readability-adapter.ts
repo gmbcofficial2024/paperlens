@@ -1,4 +1,5 @@
 import Readability from "../vendor/readability/Readability.js";
+import { resolveRankedHierarchy, type RankedHierarchyNode } from "./content-policy";
 
 const SOURCE_ATTRIBUTE = "data-paperlens-source-id";
 const MAX_SOURCE_ELEMENTS = 100_000;
@@ -55,14 +56,7 @@ interface CacheEntry {
   publisherNodes: WeakSet<Node>;
 }
 
-interface RankedCandidate {
-  element: HTMLElement;
-  tier: number;
-  children: RankedCandidate[];
-  maxSubtreeTier: number;
-  excludedByDescendant: boolean;
-  excluded: boolean;
-}
+type RankedCandidate = RankedHierarchyNode<HTMLElement>;
 
 interface CandidateTraversalFrame {
   element: Element;
@@ -246,62 +240,6 @@ function candidateTier(
     : null;
 }
 
-function resolveRankedCandidates(
-  candidates: RankedCandidate[],
-  roots: RankedCandidate[],
-): HTMLElement[] {
-  const postOrder: Array<{ candidate: RankedCandidate; visited: boolean }> = roots
-    .map((candidate) => ({ candidate, visited: false }))
-    .reverse();
-
-  while (postOrder.length > 0) {
-    const { candidate, visited } = postOrder.pop()!;
-    if (!visited) {
-      postOrder.push({ candidate, visited: true });
-      for (let index = candidate.children.length - 1; index >= 0; index -= 1) {
-        postOrder.push({ candidate: candidate.children[index], visited: false });
-      }
-      continue;
-    }
-
-    let maxDescendantTier = Number.NEGATIVE_INFINITY;
-    for (const child of candidate.children) {
-      maxDescendantTier = Math.max(maxDescendantTier, child.maxSubtreeTier);
-    }
-    candidate.excludedByDescendant = maxDescendantTier >= candidate.tier;
-    candidate.maxSubtreeTier = Math.max(candidate.tier, maxDescendantTier);
-  }
-
-  const preOrder: Array<{
-    candidate: RankedCandidate;
-    survivingAncestorTier: number | null;
-  }> = roots
-    .map((candidate) => ({ candidate, survivingAncestorTier: null }))
-    .reverse();
-
-  while (preOrder.length > 0) {
-    const { candidate, survivingAncestorTier } = preOrder.pop()!;
-    const excludedByAncestor = !candidate.excludedByDescendant &&
-      survivingAncestorTier !== null &&
-      survivingAncestorTier > candidate.tier;
-    candidate.excluded = candidate.excludedByDescendant || excludedByAncestor;
-    const nextAncestorTier = candidate.excluded
-      ? survivingAncestorTier
-      : candidate.tier;
-
-    for (let index = candidate.children.length - 1; index >= 0; index -= 1) {
-      preOrder.push({
-        candidate: candidate.children[index],
-        survivingAncestorTier: nextAncestorTier,
-      });
-    }
-  }
-
-  return candidates
-    .filter((candidate) => !candidate.excluded)
-    .map((candidate) => candidate.element);
-}
-
 function eligibleElements(
   source: ParentNode,
   maxCandidates = Number.POSITIVE_INFINITY,
@@ -334,7 +272,7 @@ function eligibleElements(
 
     if (tier !== null) {
       const candidate: RankedCandidate = {
-        element,
+        item: element,
         tier,
         children: [],
         maxSubtreeTier: tier,
@@ -358,7 +296,7 @@ function eligibleElements(
     }
   }
 
-  return resolveRankedCandidates(candidates, roots);
+  return resolveRankedHierarchy(candidates, roots);
 }
 
 function sortOriginals(

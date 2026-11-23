@@ -8,14 +8,13 @@ import type {
   SentenceAlignment,
   TokenUsage,
 } from "../shared/types";
-import { collectReadingDocument } from "./reading-document";
 import {
   enableCrossHighlight,
   unwrapSentenceSpans,
   unwrapSentenceSpansWithin,
   wrapSentences,
 } from "./highlight";
-import { extractParagraphText } from "./text-extraction";
+import { extractParagraphText, isSourceHidden } from "./text-extraction";
 import {
   createTranslationBlock,
   removeAllBlocks,
@@ -23,6 +22,7 @@ import {
   toggleBlocksVisibility,
   finalizeBlock,
 } from "./translation-block";
+import { collectTranslatableSections } from "./translation-targets";
 import {
   addUsage,
   destroyWidget,
@@ -174,45 +174,7 @@ class PageTranslationSessionImpl implements PageTranslationSession {
     }
 
     if (this.inProgress) return;
-    this.inProgress = true;
-    const runGeneration = this.generation;
-
-    try {
-      const settings = await this.options.loadSettings();
-      if (!this.isCurrent(runGeneration)) return;
-
-      await this.options.beforeStart(settings);
-      if (!this.isCurrent(runGeneration)) return;
-
-      const sections = this.prepareSections(runGeneration);
-      if (sections.length === 0) {
-        console.log("PaperLens: no paragraphs found");
-        return;
-      }
-
-      this.active = true;
-      this.visible = true;
-      setProgress(0, sections.length);
-      showWidget();
-
-      let completedSections = 0;
-      const tasks = sections.map((section) => async () => {
-        await this.translateSection(section, settings, runGeneration);
-        if (!this.isCurrent(runGeneration) || section.progressSettled) return;
-        section.progressSettled = true;
-        completedSections++;
-        setProgress(completedSections, sections.length);
-      });
-      await runWithConcurrency(tasks, settings.maxConcurrency);
-    } finally {
-      if (this.isCurrent(runGeneration)) {
-        this.inProgress = false;
-        if (this.refreshPending) {
-          this.refreshPending = false;
-          void this.refresh();
-        }
-      }
-    }
+    await this.runPass(true);
   }
 
   async refresh(): Promise<void> {
@@ -221,30 +183,7 @@ class PageTranslationSessionImpl implements PageTranslationSession {
       this.refreshPending = true;
       return;
     }
-    this.inProgress = true;
-    const runGeneration = this.generation;
-    try {
-      const settings = await this.options.loadSettings();
-      if (!this.isCurrent(runGeneration)) return;
-      const sections = this.prepareSections(runGeneration);
-      if (!sections.length) return;
-      let completed = 0;
-      setProgress(0, sections.length);
-      const tasks = sections.map(section => async () => {
-        await this.translateSection(section, settings, runGeneration);
-        if (!this.isCurrent(runGeneration)) return;
-        setProgress(++completed, sections.length);
-      });
-      await runWithConcurrency(tasks, settings.maxConcurrency);
-    } finally {
-      if (this.isCurrent(runGeneration)) {
-        this.inProgress = false;
-        if (this.refreshPending) {
-          this.refreshPending = false;
-          void this.refresh();
-        }
-      }
-    }
+    await this.runPass(false);
   }
 
   reset(): void {
@@ -285,6 +224,54 @@ class PageTranslationSessionImpl implements PageTranslationSession {
     this.paragraphIndex = 0;
   }
 
+  private async runPass(initialStart: boolean): Promise<void> {
+    this.inProgress = true;
+    const runGeneration = this.generation;
+
+    try {
+      const settings = await this.options.loadSettings();
+      if (!this.isCurrent(runGeneration)) return;
+
+      if (initialStart) {
+        await this.options.beforeStart(settings);
+        if (!this.isCurrent(runGeneration)) return;
+      }
+
+      const sections = this.prepareSections(runGeneration);
+      if (sections.length === 0) {
+        if (initialStart) console.log("PaperLens: no paragraphs found");
+        return;
+      }
+
+      if (initialStart) {
+        this.active = true;
+        this.visible = true;
+        setProgress(0, sections.length);
+        showWidget();
+      } else {
+        setProgress(0, sections.length);
+      }
+
+      let completedSections = 0;
+      const tasks = sections.map((section) => async () => {
+        await this.translateSection(section, settings, runGeneration);
+        if (!this.isCurrent(runGeneration) || section.progressSettled) return;
+        section.progressSettled = true;
+        completedSections++;
+        setProgress(completedSections, sections.length);
+      });
+      await runWithConcurrency(tasks, settings.maxConcurrency);
+    } finally {
+      if (this.isCurrent(runGeneration)) {
+        this.inProgress = false;
+        if (this.refreshPending) {
+          this.refreshPending = false;
+          void this.refresh();
+        }
+      }
+    }
+  }
+
   private isCurrent(runGeneration: number): boolean {
     return runGeneration === this.generation;
   }
@@ -300,14 +287,14 @@ class PageTranslationSessionImpl implements PageTranslationSession {
 
   private prepareSections(runGeneration: number): PreparedSection[] {
     const prepared: PreparedSection[] = [];
-    const reading = collectReadingDocument({includeTranslatedParagraphs: true});
-    const accepted = new Set(reading.sections.flatMap(section => section.paragraphs));
-    const existing = new Map([...this.ownedParagraphs].map(paragraph => [paragraph.element, paragraph]));
-    for (const paragraph of this.ownedParagraphs) {
+    const targetSections = collectTranslatableSections({ includeTranslatedParagraphs: true });
+    const accepted = new Set(targetSections.flatMap((section) => section.paragraphs));
+    const existing = new Map([...this.ownedParagraphs].map((paragraph) => [paragraph.element, paragraph]));
+    for (const paragraph of [...this.ownedParagraphs]) {
       if (!accepted.has(paragraph.element)) this.releaseParagraph(paragraph);
     }
 
-    for (const section of reading.sections) {
+    for (const section of targetSections) {
       const validParagraphs = section.paragraphs
         .map((element) => ({ element, text: extractParagraphText(element) }))
         .filter(({ element, text }) => {
@@ -328,7 +315,7 @@ class PageTranslationSessionImpl implements PageTranslationSession {
         const paragraphs = chunk.map(({ element, text }) => {
           const id = `pl-${runGeneration}-${this.paragraphIndex++}`;
           element.setAttribute("data-paperlens-id", id);
-          const paragraph = {
+          const paragraph: PreparedParagraph = {
             element,
             text,
             id,
@@ -354,12 +341,20 @@ class PageTranslationSessionImpl implements PageTranslationSession {
     section: PreparedSection,
     results: ParagraphResult[],
   ): void {
-    const accepted = new Set(collectReadingDocument({includeTranslatedParagraphs: true}).sections.flatMap(item => item.paragraphs));
+    const accepted = new Set(
+      collectTranslatableSections({ includeTranslatedParagraphs: true })
+        .flatMap((item) => item.paragraphs),
+    );
     const count = Math.min(section.paragraphs.length, results.length);
     for (let index = 0; index < count; index++) {
       const paragraph = section.paragraphs[index];
-      if (!accepted.has(paragraph.element)) {this.releaseParagraph(paragraph); continue;}
-      if (!this.ownedParagraphs.has(paragraph) || extractParagraphText(paragraph.element) !== paragraph.text) continue;
+      if (!paragraph.element.isConnected || isSourceHidden(paragraph.element) || !accepted.has(paragraph.element)) {
+        this.releaseParagraph(paragraph);
+        continue;
+      }
+      if (!this.ownedParagraphs.has(paragraph) || extractParagraphText(paragraph.element) !== paragraph.text) {
+        continue;
+      }
       const result = results[index];
       paragraph.block.classList.remove("paperlens-error");
       finalizeBlock(paragraph.block, result.translation);
@@ -492,22 +487,7 @@ class PageTranslationSessionImpl implements PageTranslationSession {
         resolve();
       };
 
-      owner = {
-        cancel: () => {
-          if (promiseSettled) return;
-          terminalReceived = true;
-          cancelRetries();
-          intentionalTerminal = true;
-          this.ownedPorts.delete(owner);
-          promiseSettled = true;
-          try {
-            port.disconnect();
-          } catch {
-            // The browser may already have disconnected the Port.
-          }
-          resolve();
-        },
-      };
+      owner = { cancel: finish };
       this.ownedPorts.add(owner);
 
       const sendRequest = (): void => {
@@ -523,7 +503,7 @@ class PageTranslationSessionImpl implements PageTranslationSession {
           paragraphTexts,
           paragraphIds,
           customPrompt: settings.customPrompt,
-          ...(settings.translationConfigKey ? {configurationKey: settings.translationConfigKey} : {}),
+          ...(settings.translationConfigKey ? { configurationKey: settings.translationConfigKey } : {}),
         } satisfies StreamRequest);
       };
 
@@ -601,8 +581,8 @@ class PageTranslationSessionImpl implements PageTranslationSession {
             completeSuccessfully(
               section.paragraphs.length === 1
                 ? [{
-                translation: message.fullText,
-                alignment: message.alignment,
+                    translation: message.fullText,
+                    alignment: message.alignment,
                   }]
                 : [],
               message.usage,

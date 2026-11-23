@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.9
+
+- Separate inline translation target selection from full-document summary extraction so papers keep data tables and scientific measurements in summaries while translating only readable prose, figure descriptions, vertical list items, and descriptive table captions in place.
+- Honor publisher profile exclusions, visually hidden accessibility labels, standalone equation tables/math blocks, code listings, figure action links, horizontal tab/navigation lists, and publication metadata badges/dates/DOIs/metrics/licenses across extraction and translation.
+- Preserve host page UI/UX with layout-safe contained placement for `li`, `dd`, `caption`, and flex/grid children, safe summary insertion outside headers/lists/figures/tables, DOM-preserving text-node sentence highlighting around inline links and MathML/MathJax/KaTeX, and defensive light/dark-compatible translation styling.
+- Refactor content extraction into modular `journal-profiles`, `content-policy`, and `translation-targets` modules with single-pass DOM ordering and shared candidate ranking.
+- Improve default Korean translation and seven-section summary prompts for clearer grounding, stricter sentence alignment, and more natural academic prose.
+
 ## 1.1.8
 
 - Add OpenAI and Anthropic API summaries for papers and ordinary articles, using the current translation model catalog and the existing safe summary prompt and response handling.
