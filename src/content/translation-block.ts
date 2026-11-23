@@ -3,6 +3,7 @@ import { isHorizontalFlex, isMultiTrackGrid } from "./translation-targets";
 const BLOCK_CLASS = "paperlens-translation";
 const CONTAINED_CLASS = "paperlens-translation--contained";
 const SKELETON_CLASS = "paperlens-skeleton";
+const STREAMING_CLASS = "paperlens-streaming";
 const ERROR_CLASS = "paperlens-error";
 const HIDDEN_CLASS = "paperlens-hidden";
 
@@ -53,8 +54,14 @@ export function createTranslationBlock(paragraphEl: HTMLElement, paragraphId: st
   return block;
 }
 
+export function updateStreamingBlock(block: HTMLElement, partialTranslation: string): void {
+  block.classList.remove(SKELETON_CLASS, ERROR_CLASS);
+  block.classList.add(STREAMING_CLASS);
+  block.textContent = partialTranslation;
+}
+
 export function finalizeBlock(block: HTMLElement, translation: string | Node): void {
-  block.classList.remove(SKELETON_CLASS);
+  block.classList.remove(SKELETON_CLASS, STREAMING_CLASS, ERROR_CLASS);
   if (typeof translation === "string") {
     block.textContent = translation;
   } else {
@@ -63,7 +70,7 @@ export function finalizeBlock(block: HTMLElement, translation: string | Node): v
 }
 
 export function setBlockError(block: HTMLElement, error: string, onRetry?: () => void): void {
-  block.classList.remove(SKELETON_CLASS);
+  block.classList.remove(SKELETON_CLASS, STREAMING_CLASS);
   block.classList.add(ERROR_CLASS);
   block.textContent = "";
 

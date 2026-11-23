@@ -2,7 +2,7 @@ import type { ParagraphResult, SentenceAlignment, TokenUsage } from "./types";
 
 export type StreamRequest =
   | { type: "stream/translate"; text: string; paragraphId: string }
-  | { type: "stream/translate-section"; paragraphTexts: string[]; paragraphIds: string[]; customPrompt: string; configurationKey?: string };
+  | { type: "stream/translate-section"; paragraphTexts: string[]; paragraphIds: string[]; customPrompt: string; glossary?: string; configurationKey?: string };
 
 export type StreamMessage =
   | { type: "stream-chunk"; delta: string }

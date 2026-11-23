@@ -1,4 +1,4 @@
-import type { ExtensionSettings, TranslationResult, SummaryResult, CacheEntry } from "./types";
+import type { ExtensionSettings, TranslationResult, SummaryResult, CacheEntry, TabReadingStatus } from "./types";
 
 export type RuntimeRequest =
   | { type: "settings/get" }
@@ -9,7 +9,9 @@ export type RuntimeRequest =
   | { type: "cache/put"; entry: CacheEntry }
   | { type: "cache/clear" }
   | { type: "tabs/toggle-translate" }
+  | { type: "tabs/stop-translate" }
   | { type: "tabs/summarize-paper" }
+  | { type: "tabs/page-status" }
   | { type: "toggle-translate" };
 
 type SuccessResponses = {
@@ -21,7 +23,9 @@ type SuccessResponses = {
   "cache/put": { ok: true };
   "cache/clear": { ok: true };
   "tabs/toggle-translate": { ok: true };
+  "tabs/stop-translate": { ok: true };
   "tabs/summarize-paper": { ok: true };
+  "tabs/page-status": { ok: true; status: TabReadingStatus };
   "toggle-translate": { ok: true };
 };
 

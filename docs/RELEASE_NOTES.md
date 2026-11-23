@@ -7,7 +7,7 @@
 - 직접 설치하거나 macOS/Linux를 사용하는 경우 `paperlens-<version>.zip`을 사용하세요. `Source code` 압축 파일은 개발용 소스입니다.
 - 자신의 API 키를 입력해야 합니다. Gemini를 선택한 번역·요약·연결 테스트 모델만 `gemini-flash-latest`로 고정되며, 요청에는 선택한 제공자의 API 요금이 발생할 수 있습니다.
 
-`1.1.9`는 논문 페이지에서 불필요한 UI·메타데이터·수식·코드·수치 표가 인라인 번역되며 레이아웃이 깨지던 문제를 해결하고 콘텐츠 추출 구조를 리팩토링합니다. 요약에는 표 데이터와 과학적 수치를 유지하면서, 인라인 번역은 본문·그림 설명·표 캡션·세로 목록 등 읽을 가치가 있는 문단만 선별하고 리스트·캡션·플렉스/그리드 구조를 해치지 않도록 안전하게 배치합니다. 인라인 링크·수식 DOM을 보존하는 문장 하이라이트, 라이트/다크 배경 호환 스타일, 그리고 개선된 기본 번역·요약 프롬프트가 함께 포함됩니다. 기존 제공자·키 설정은 유지되며 Gemini API 배포 모델은 계속 Flash Latest로 고정됩니다. [모델·전환 안내](https://github.com/gmbcofficial2024/paperlens/blob/main/docs/MODELS.md)
+`1.2.0`은 논문 읽기 체감 속도와 사용성을 전반적으로 개선합니다. 현재 화면에 보이는 섹션부터 우선 번역하고 첫 배치를 축소해 응답 대기 시간을 줄였으며, 스트리밍 수신과 동시에 문단 번역을 실시간으로 표시하고 진행 중 즉시 중지(Stop)할 수 있습니다. 플로팅 HUD에서 병렬/집중/원문 읽기 모드 전환과 글자 크기 조절, 문장 클릭 고정 하이라이트, 요약 카드 닫기 및 Obsidian용 프론트매터 포함 노트 복사, 분야별 용어집(Glossary)과 학술 프롬프트 프리셋, 팝업 실시간 상태 배지 및 API 키 보기/숨기기 토글을 지원합니다. 기존 제공자·키 설정은 유지되며 Gemini API 배포 모델은 계속 Flash Latest로 고정됩니다. [모델·전환 안내](https://github.com/gmbcofficial2024/paperlens/blob/main/docs/MODELS.md)
 
 [설치·업데이트 안내](https://github.com/gmbcofficial2024/paperlens/blob/main/docs/INSTALL.md) · [사용법](https://github.com/gmbcofficial2024/paperlens#readme) · [변경 사항](https://github.com/gmbcofficial2024/paperlens/blob/main/CHANGELOG.md)
 

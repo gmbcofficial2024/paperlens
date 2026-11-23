@@ -7,8 +7,14 @@ import {PROVIDERS} from "./providers";
 export async function translationConfigurationKey(settings: ExtensionSettings): Promise<string> {
   const provider = settings.currentProvider;
   const setting = settings.providerSettings[provider];
-  return hashText(JSON.stringify({provider, model: setting.model || PROVIDERS[provider].defaultModel,
-    endpoint: provider === "custom" ? setting.customUrl : undefined, customPrompt: settings.customPrompt}));
+  const glossary = settings.glossary?.trim() || undefined;
+  return hashText(JSON.stringify({
+    provider,
+    model: setting.model || PROVIDERS[provider].defaultModel,
+    endpoint: provider === "custom" ? setting.customUrl : undefined,
+    customPrompt: settings.customPrompt,
+    ...(glossary ? { glossary } : {}),
+  }));
 }
 
 export async function assertTranslationConfiguration(settings: ExtensionSettings, key?: string): Promise<void> {
@@ -28,7 +34,9 @@ const requestSchema = z.discriminatedUnion("type", [
   z.object({type: z.literal("cache/put"), entry: z.object({hash: z.string().min(1).max(256), paragraphs: z.array(paragraph).max(10000), timestamp: z.number().finite(), size: z.number().finite().nonnegative()})}),
   z.object({type: z.literal("cache/clear")}),
   z.object({type: z.literal("tabs/toggle-translate")}),
+  z.object({type: z.literal("tabs/stop-translate")}),
   z.object({type: z.literal("tabs/summarize-paper")}),
+  z.object({type: z.literal("tabs/page-status")}),
   z.object({type: z.literal("toggle-translate")}),
 ]);
 
@@ -64,7 +72,7 @@ export function runtimeRequestError(message: unknown, sender: RuntimeSender, ext
   if (sender.id && sender.id !== extensionId) return "Unauthorized extension sender.";
   const parsed = requestSchema.safeParse(message);
   if (!parsed.success) return "Invalid PaperLens request.";
-  if (!isExtensionPageSender(sender, extensionId) && ["settings/update", "cache/clear", "tabs/toggle-translate", "tabs/summarize-paper", "toggle-translate"].includes(parsed.data.type)) {
+  if (!isExtensionPageSender(sender, extensionId) && ["settings/update", "cache/clear", "tabs/toggle-translate", "tabs/stop-translate", "tabs/summarize-paper", "tabs/page-status", "toggle-translate"].includes(parsed.data.type)) {
     return "This action requires a PaperLens extension page.";
   }
   return null;

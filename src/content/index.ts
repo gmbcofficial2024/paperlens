@@ -18,10 +18,21 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return;
   }
 
+  if (message.type === "paperlens/status") {
+    sendResponse({ ok: true, status: pageReadingSession.getStatus() });
+    return;
+  }
+
   if (message.type === "toggle-translate") {
     void pageReadingSession.toggleTranslation().catch((error) => {
       console.error(error);
     });
+    sendResponse({ ok: true });
+    return;
+  }
+
+  if (message.type === "stop-translate") {
+    pageReadingSession.stopTranslation();
     sendResponse({ ok: true });
     return;
   }

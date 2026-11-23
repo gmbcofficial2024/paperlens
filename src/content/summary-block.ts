@@ -24,7 +24,9 @@ export interface SummaryBlockScope {
 
 export interface SummaryBlockOptions {
   insertionAnchor?: Element;
+  title?: string;
   onCancel?: () => void;
+  onClose?: () => void;
   onRetry?: () => void;
   onKindChange?: (kind: "paper" | "article") => void;
   kind?: "paper" | "article";
@@ -43,10 +45,59 @@ interface SummaryBlockState {
   cancel: HTMLButtonElement;
   retry: HTMLButtonElement;
   copy: HTMLButtonElement;
+  copyNote: HTMLButtonElement;
   copyFeedback: HTMLElement;
   fold: HTMLButtonElement;
+  close: HTMLButtonElement;
   kind: HTMLSelectElement;
   notice: HTMLElement | null;
+}
+
+export interface ReadingNoteMetadata {
+  title?: string;
+  url?: string;
+  doi?: string;
+  kind?: "paper" | "article";
+  summary: string;
+  clippedDate?: string;
+}
+
+export function formatSummaryReadingNote(meta: ReadingNoteMetadata): string {
+  const title = meta.title?.trim() || "Untitled";
+  const url = meta.url && /^https?:\/\//i.test(meta.url) ? meta.url : undefined;
+  const doi = meta.doi?.trim() || undefined;
+  const kind = meta.kind ?? "paper";
+  const clipped = meta.clippedDate ?? new Date().toISOString().slice(0, 10);
+
+  const frontmatter = [
+    "---",
+    `title: ${JSON.stringify(title)}`,
+    ...(url ? [`source: ${JSON.stringify(url)}`] : []),
+    ...(doi ? [`doi: ${JSON.stringify(doi)}`] : []),
+    `type: ${kind}`,
+    `clipped: ${clipped}`,
+    "---",
+  ].join("\n");
+
+  return `${frontmatter}\n\n# ${title}\n\n${meta.summary.trim()}\n`;
+}
+
+function collectCurrentNoteMetadata(state: SummaryBlockState): ReadingNoteMetadata {
+  const title =
+    state.options.title?.trim() ||
+    document.querySelector("meta[name='citation_title']")?.getAttribute("content")?.trim() ||
+    document.querySelector("h1")?.textContent?.trim() ||
+    document.title?.trim() ||
+    undefined;
+  const doi = document.querySelector("meta[name='citation_doi']")?.getAttribute("content")?.trim() || undefined;
+  const url = typeof location !== "undefined" ? location.href : undefined;
+  return {
+    title,
+    url,
+    doi,
+    kind: state.options.kind ?? "paper",
+    summary: state.summary,
+  };
 }
 
 const states = new WeakMap<HTMLElement, SummaryBlockState>();
@@ -121,6 +172,7 @@ function updateState(block: HTMLElement, state: SummaryBlockState): void {
   state.cancel.hidden = state.phase !== "running" || !state.options.onCancel;
   state.retry.hidden = !["error", "cancelled"].includes(state.phase) || !state.options.onRetry;
   state.copy.hidden = state.phase !== "ready";
+  state.copyNote.hidden = state.phase !== "ready";
   state.fold.hidden = state.phase !== "ready";
   state.kind.hidden = !state.options.onKindChange;
   const kindOptions = [...state.kind.options];
@@ -168,17 +220,21 @@ function makeBlock(block: HTMLElement): SummaryBlockState {
   const cancel = button("paperlens-summary-cancel", "표시 중단");
   const retry = button("paperlens-summary-retry", "다시 시도");
   const copy = button("paperlens-summary-copy", "요약 복사");
+  const copyNote = button("paperlens-summary-copy-note", "노트 복사");
+  copyNote.title = "Obsidian/Markdown 메타데이터(제목·URL·DOI) 포함 복사";
   const fold = button("paperlens-summary-fold", "요약 접기");
   fold.setAttribute("aria-controls", BODY_ID);
   fold.setAttribute("aria-expanded", "true");
+  const close = button("paperlens-summary-close", "닫기");
+  close.setAttribute("aria-label", "요약 닫기");
   const copyFeedback = element("span", "paperlens-summary-copy-feedback");
   copyFeedback.setAttribute("role", "status");
-  actions.append(cancel, retry, copy, fold, copyFeedback);
+  actions.append(cancel, retry, copy, copyNote, fold, close, copyFeedback);
   footer.append(scope, actions);
   block.replaceChildren(top, intro, body, footer);
   const state: SummaryBlockState = {
     options: {}, phase: "running", summary: "", scope: null, sourceUpdate: null,
-    title, status, body, scopeContent, cancel, retry, copy, copyFeedback, fold, kind, notice: null,
+    title, status, body, scopeContent, cancel, retry, copy, copyNote, copyFeedback, fold, close, kind, notice: null,
   };
   states.set(block, state);
   cancel.addEventListener("click", () => {
@@ -192,19 +248,28 @@ function makeBlock(block: HTMLElement): SummaryBlockState {
     fold.setAttribute("aria-expanded", String(!state.body.hidden));
     fold.textContent = state.body.hidden ? "요약 펼치기" : "요약 접기";
   });
-  copy.addEventListener("click", () => {
+  close.addEventListener("click", () => {
+    if (state.phase === "running") {
+      state.options.onCancel?.();
+    }
+    state.options.onClose?.();
+    block.remove();
+  });
+  const writeClipboard = (payload: string, okLabel: string): void => {
     if (state.phase !== "ready") return;
     state.copyFeedback.textContent = "";
     const summary = state.summary;
     void (async () => {
       try {
-        await navigator.clipboard.writeText(summary);
-        if (state.summary === summary && state.phase === "ready") state.copyFeedback.textContent = "복사됨";
+        await navigator.clipboard.writeText(payload);
+        if (state.summary === summary && state.phase === "ready") state.copyFeedback.textContent = okLabel;
       } catch {
         if (state.summary === summary && state.phase === "ready") state.copyFeedback.textContent = "브라우저에서 복사할 수 없습니다.";
       }
     })();
-  });
+  };
+  copy.addEventListener("click", () => writeClipboard(state.summary, "복사됨"));
+  copyNote.addEventListener("click", () => writeClipboard(formatSummaryReadingNote(collectCurrentNoteMetadata(state)), "노트 복사됨"));
   kind.addEventListener("change", () => {
     const value = kind.value;
     if (value !== "paper" && value !== "article") return;
@@ -312,4 +377,15 @@ export function setSummaryBlockSourceChanged(block: HTMLElement, onUpdate: () =>
 
 export function removeSummaryBlock(): void {
   document.getElementById(SUMMARY_BLOCK_ID)?.remove();
+}
+
+export function hasSummaryBlock(): boolean {
+  return Boolean(document.getElementById(SUMMARY_BLOCK_ID)?.isConnected);
+}
+
+export function scrollToSummaryBlock(): boolean {
+  const block = document.getElementById(SUMMARY_BLOCK_ID);
+  if (!block?.isConnected) return false;
+  block.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  return true;
 }

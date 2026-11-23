@@ -17,7 +17,7 @@ import { redactSecrets } from "../shared/secrets";
 import { parseSectionTranslationJson, parseTranslationJson } from "../shared/translation-json";
 import type { RuntimeRequest, RuntimeResponse } from "../shared/messages";
 import type { StreamRequest, StreamMessage } from "../shared/stream-protocol";
-import type { ApiSummaryProviderId, ExtensionSettings, TranslationResult, SummaryResult, TokenUsage, SentenceAlignment, ParagraphResult, ProviderSetting } from "../shared/types";
+import type { ApiSummaryProviderId, ExtensionSettings, TranslationResult, SummaryResult, TokenUsage, SentenceAlignment, ParagraphResult, ProviderSetting, TabReadingStatus } from "../shared/types";
 import type { ProviderCallOptions, ProviderPayloadResult } from "../shared/provider-protocol";
 
 // ---------------------------------------------------------------------------
@@ -102,6 +102,44 @@ async function toggleActiveTabTranslation(): Promise<void> {
   assertInjectableTab(tab);
   await ensureContentScript(tab.id);
   await sendTabMessage(tab.id, { type: "toggle-translate" });
+}
+
+async function stopActiveTabTranslation(): Promise<void> {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  assertInjectableTab(tab);
+  if (await isContentScriptReady(tab.id)) {
+    await sendTabMessage(tab.id, { type: "stop-translate" });
+  }
+}
+
+async function queryActiveTabStatus(): Promise<TabReadingStatus> {
+  const empty: TabReadingStatus = {
+    injectable: false,
+    loaded: false,
+    active: false,
+    visible: false,
+    inProgress: false,
+    done: 0,
+    total: 0,
+    hasSummary: false,
+    summaryRunning: false,
+  };
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab || tab.id == null || !tab.url || !/^https?:\/\//.test(tab.url)) {
+    return empty;
+  }
+  try {
+    const response = await sendTabMessage<{ ok?: boolean; status?: Omit<TabReadingStatus, "injectable" | "loaded"> }>(
+      tab.id,
+      { type: "paperlens/status" },
+    );
+    if (response?.ok && response.status) {
+      return { injectable: true, loaded: true, ...response.status };
+    }
+  } catch {
+    // Content script has not been injected into this tab yet.
+  }
+  return { ...empty, injectable: true };
 }
 
 async function summarizeActiveTab(): Promise<void> {
@@ -377,7 +415,7 @@ chrome.runtime.onMessage.addListener((message: RuntimeRequest, sender, sendRespo
         }
         case "translate/paragraph": {
           const settings = await readSettings();
-          const sysPrompt = buildSystemPrompt(settings.customPrompt);
+          const sysPrompt = buildSystemPrompt(settings.customPrompt, settings.glossary);
           const usrPrompt = buildUserPrompt([message.text]);
           const result = await dispatchTranslation(sysPrompt, usrPrompt, settings);
           sendResponse({ ok: true, result } as RuntimeResponse);
@@ -409,9 +447,19 @@ chrome.runtime.onMessage.addListener((message: RuntimeRequest, sender, sendRespo
           sendResponse({ ok: true } as RuntimeResponse);
           return;
         }
+        case "tabs/stop-translate": {
+          await stopActiveTabTranslation();
+          sendResponse({ ok: true } as RuntimeResponse);
+          return;
+        }
         case "tabs/summarize-paper": {
           await summarizeActiveTab();
           sendResponse({ ok: true } as RuntimeResponse);
+          return;
+        }
+        case "tabs/page-status": {
+          const status = await queryActiveTabStatus();
+          sendResponse({ ok: true, status } as RuntimeResponse);
           return;
         }
         case "toggle-translate": {
@@ -483,7 +531,7 @@ chrome.runtime.onConnect.addListener((port) => {
         port.onDisconnect.addListener(abortOnDisconnect);
         try {
           const settings = await readSettings();
-          const sysPrompt = buildSystemPrompt(settings.customPrompt);
+          const sysPrompt = buildSystemPrompt(settings.customPrompt, settings.glossary);
           const usrPrompt = buildUserPrompt([msg.text]);
           const { fullText, usage } = await dispatchStream(sysPrompt, usrPrompt, settings, (delta) => {
             try {
@@ -525,7 +573,7 @@ chrome.runtime.onConnect.addListener((port) => {
         port.onDisconnect.addListener(abortOnDisconnect);
         try {
           const settings = await readSettings();
-          const sysPrompt = buildSystemPrompt(msg.customPrompt);
+          const sysPrompt = buildSystemPrompt(msg.customPrompt, msg.glossary ?? settings.glossary);
           await assertTranslationConfiguration(settings, msg.configurationKey);
           const usrPrompt = buildUserPrompt(msg.paragraphTexts);
           const { fullText, usage } = await dispatchStream(sysPrompt, usrPrompt, settings, (delta) => {

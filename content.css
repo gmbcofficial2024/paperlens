@@ -486,6 +486,32 @@
   animation: paperlens-pulse 1.5s ease-in-out infinite;
 }
 
+.paperlens-translation.paperlens-streaming,
+.paperlens-translation[data-paperlens-block].paperlens-streaming {
+  border-left-style: dashed !important;
+}
+
+/* Reading modes & font scales controlled from Reading HUD */
+html[data-paperlens-reading-mode="focus"] [data-paperlens-id]:not(:has(> .paperlens-translation)) {
+  opacity: 0.56;
+  transition: opacity 0.16s ease;
+}
+
+html[data-paperlens-reading-mode="focus"] [data-paperlens-id]:not(:has(> .paperlens-translation)):hover,
+html[data-paperlens-reading-mode="focus"] [data-paperlens-id]:has(.paperlens-highlight-pinned) {
+  opacity: 1;
+}
+
+html[data-paperlens-font-scale="sm"] .paperlens-translation,
+html[data-paperlens-font-scale="sm"] .paperlens-translation[data-paperlens-block] {
+  font-size: 0.86em !important;
+}
+
+html[data-paperlens-font-scale="lg"] .paperlens-translation,
+html[data-paperlens-font-scale="lg"] .paperlens-translation[data-paperlens-block] {
+  font-size: 1.05em !important;
+}
+
 @keyframes paperlens-pulse {
   0%, 100% { opacity: 0.52; }
   50% { opacity: 0.9; }
@@ -539,6 +565,16 @@
 .paperlens-translation .paperlens-highlight {
   background-color: rgba(165, 214, 184, 0.66) !important;
   box-shadow: 0 0 0 2px rgba(35, 129, 76, 0.13);
+}
+
+.paperlens-highlight-pinned {
+  background-color: rgba(255, 214, 102, 0.82) !important;
+  box-shadow: 0 2px 0 0 rgba(183, 121, 31, 0.55);
+}
+
+.paperlens-translation .paperlens-highlight-pinned {
+  background-color: rgba(134, 206, 162, 0.72) !important;
+  box-shadow: 0 2px 0 0 rgba(35, 129, 76, 0.55);
 }
 
 /* Gap sentences (not covered by LLM alignment, fallback-split) */

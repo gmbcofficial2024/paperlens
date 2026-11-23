@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.0
+
+- Prioritize visible viewport sections first, use a smaller initial three-paragraph batch for faster first-paint translation, and stream paragraph translations incrementally as chunks arrive.
+- Add an immediate Stop control in both the floating reading HUD and extension popup that cancels in-flight requests/retries, removes unfinished skeletons while keeping completed translations, and shows Shadow DOM page toasts for stops, empty pages, and API/auth errors.
+- Upgrade reading ergonomics with click-to-pin sentence pair highlighting (`Escape`/re-click/outside click to unpin without interfering with links or text selection), floating HUD reading modes (bilingual, focus, source-only), and translation font-scale controls (`A-` / `A` / `A+`).
+- Enhance the research workflow with Summary card close and Obsidian-ready Markdown note copy (YAML frontmatter with title, source URL, DOI, type, and clipped date), HUD summary jump/trigger, and a configurable terminology glossary (`source = target` or verbatim keep-English terms) injected into translation prompts and cache keys.
+- Polish popup and settings UX with live active-tab status badges, missing API key warnings, API key Show/Hide toggles across all providers, academic domain prompt presets, and an unsaved-changes indicator.
+
 ## 1.1.9
 
 - Separate inline translation target selection from full-document summary extraction so papers keep data tables and scientific measurements in summaries while translating only readable prose, figure descriptions, vertical list items, and descriptive table captions in place.

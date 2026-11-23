@@ -102,6 +102,8 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
   private readonly concurrencyInput: HTMLInputElement;
   private readonly cacheEnabledInput: HTMLInputElement;
   private readonly customPromptInput: HTMLTextAreaElement;
+  private readonly glossaryInput: HTMLTextAreaElement | null;
+  private readonly unsavedIndicator: HTMLElement | null;
   private readonly summaryAutoGenerateInput: HTMLInputElement;
   private readonly summaryProviderSelect: HTMLSelectElement;
   private readonly summaryCodexFields: HTMLElement;
@@ -131,6 +133,7 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
   >;
 
   private savedSettingsBaseline: ExtensionSettings | null = null;
+  private baselineFormSignature: string | null = null;
   private providerDrafts: ProviderDrafts | null = null;
   private displayedProviderId: ProviderId | null = null;
   private saveInProgress = false;
@@ -148,6 +151,8 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
     this.concurrencyInput = requireElement<HTMLInputElement>(document, "concurrency");
     this.cacheEnabledInput = requireElement<HTMLInputElement>(document, "cache-enabled");
     this.customPromptInput = requireElement<HTMLTextAreaElement>(document, "custom-prompt");
+    this.glossaryInput = document.getElementById("glossary") as HTMLTextAreaElement | null;
+    this.unsavedIndicator = document.getElementById("unsaved-indicator");
     this.summaryAutoGenerateInput = requireElement<HTMLInputElement>(
       document,
       "summary-auto-generate",
@@ -217,9 +222,14 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
   }
 
   private bindEvents(): void {
-    this.providerSelect.addEventListener("change", () => this.changeProvider());
+    const { document } = this.dependencies;
+    this.providerSelect.addEventListener("change", () => {
+      this.changeProvider();
+      this.updateUnsavedState();
+    });
     this.summaryProviderSelect.addEventListener("change", () => {
       this.showSummaryProviderFields(this.summaryProviderSelect.value as SummaryProviderId);
+      this.updateUnsavedState();
     });
     this.saveButton.addEventListener("click", () => {
       void this.save();
@@ -227,6 +237,93 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
     this.clearCacheButton.addEventListener("click", () => {
       void this.clearCache();
     });
+
+    document.querySelectorAll<HTMLButtonElement>("[data-toggle-password]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const targetId = btn.getAttribute("data-toggle-password");
+        if (!targetId) return;
+        const input = document.getElementById(targetId) as HTMLInputElement | null;
+        if (!input) return;
+        const revealed = input.type === "password";
+        input.type = revealed ? "text" : "password";
+        btn.textContent = revealed ? "Hide" : "Show";
+        btn.setAttribute("aria-pressed", String(revealed));
+      });
+    });
+
+    document.querySelectorAll<HTMLButtonElement>("[data-preset]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const preset = btn.getAttribute("data-preset")?.trim();
+        if (!preset) return;
+        const current = this.customPromptInput.value.trim();
+        if (!current.includes(preset)) {
+          this.customPromptInput.value = current ? `${current}\n${preset}` : preset;
+          this.updateUnsavedState();
+        }
+      });
+    });
+
+    const dirtyInputs: Array<HTMLElement | null> = [
+      this.apiKeyInput,
+      this.modelSelect,
+      this.customModelInput,
+      this.customUrlInput,
+      this.concurrencyInput,
+      this.cacheEnabledInput,
+      this.customPromptInput,
+      this.glossaryInput,
+      this.summaryAutoGenerateInput,
+      this.summaryCodexModelInput,
+      this.summaryClaudeModelInput,
+      this.summaryGeminiApiKeyInput,
+      this.summaryGeminiModelSelect,
+      this.summaryVertexApiKeyInput,
+      this.summaryVertexModelSelect,
+      this.summaryOpenaiApiKeyInput,
+      this.summaryOpenaiModelSelect,
+      this.summaryAnthropicApiKeyInput,
+      this.summaryAnthropicModelSelect,
+      this.summaryPromptInput,
+    ];
+    for (const control of dirtyInputs) {
+      if (!control) continue;
+      control.addEventListener("input", () => this.updateUnsavedState());
+      control.addEventListener("change", () => this.updateUnsavedState());
+    }
+  }
+
+  private currentFormSignature(): string | null {
+    if (!this.savedSettingsBaseline || !this.providerDrafts || !this.displayedProviderId) {
+      return null;
+    }
+    const currentProvider = this.providerSelect.value as ProviderId;
+    const liveDrafts = replaceDraft(
+      this.providerDrafts,
+      this.displayedProviderId,
+      this.readDisplayedProviderDraft(this.displayedProviderId),
+    );
+    const liveSnapshot = this.createSettingsSnapshot(
+      currentProvider,
+      providerDraftsToSettings(liveDrafts),
+    );
+    return JSON.stringify(mergeSettings(liveSnapshot));
+  }
+
+  private captureBaselineSignature(): void {
+    this.baselineFormSignature = this.currentFormSignature();
+    this.updateUnsavedState();
+  }
+
+  private hasUnsavedChanges(): boolean {
+    if (this.baselineFormSignature === null) return false;
+    const current = this.currentFormSignature();
+    return current !== null && current !== this.baselineFormSignature;
+  }
+
+  private updateUnsavedState(): void {
+    const dirty = this.hasUnsavedChanges();
+    this.unsavedIndicator?.classList.toggle("hidden", !dirty);
+    this.saveButton.classList.toggle("has-unsaved", dirty);
   }
 
   private showToast(message: string): void {
@@ -417,6 +514,7 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
 
       this.concurrencyInput.value = String(settings.maxConcurrency);
       this.customPromptInput.value = settings.customPrompt ?? "";
+      if (this.glossaryInput) this.glossaryInput.value = settings.glossary ?? "";
       this.cacheEnabledInput.checked = settings.cacheEnabled;
 
       this.populateSummaryModels();
@@ -434,6 +532,7 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
       this.summaryAnthropicApiKeyInput.value = settings.summary.anthropicApiKey ?? "";
       this.summaryAnthropicModelSelect.value = settings.summary.anthropicModel ?? "";
       this.summaryPromptInput.value = settings.summary.prompt;
+      this.captureBaselineSignature();
     } catch {
       this.showToast("Failed to load settings");
     }
@@ -466,12 +565,14 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
     const baseline = this.savedSettingsBaseline;
     if (!baseline) throw new Error("Settings baseline is unavailable");
 
+    const glossary = this.glossaryInput ? toOptionalString(this.glossaryInput.value) : baseline.glossary;
     const snapshot: ExtensionSettings = {
       currentProvider,
       providerSettings,
       cacheEnabled: this.cacheEnabledInput.checked,
       maxConcurrency: parseInt(this.concurrencyInput.value) || 3,
       customPrompt: this.customPromptInput.value.trim(),
+      ...(glossary ? { glossary } : {}),
       summary: {
         ...baseline.summary,
         provider: this.summaryProviderSelect.value as SummaryProviderId,
@@ -549,6 +650,7 @@ class OptionsSettingsEditSessionImpl implements OptionsSettingsEditSession {
         this.displayedProviderId,
         this.providerDrafts[this.displayedProviderId],
       );
+      this.captureBaselineSignature();
       this.showToast("Settings saved");
     } catch (error) {
       this.showSaveFailure(error, snapshot);

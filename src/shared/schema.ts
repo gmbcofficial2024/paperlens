@@ -77,6 +77,7 @@ export const settingsSchema = z.object({
   cacheEnabled: z.boolean().default(true),
   maxConcurrency: z.number().int().min(1).max(10).default(3),
   customPrompt: z.string().default(""),
+  glossary: z.string().max(20_000).optional(),
   summary: summarySettingsSchema.default({
     provider: "gemini",
     autoGenerate: false,

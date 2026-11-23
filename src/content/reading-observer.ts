@@ -1,4 +1,4 @@
-const OWN_UI = ".paperlens-translation, #paperlens-paper-summary, #paperlens-token-widget";
+const OWN_UI = ".paperlens-translation, #paperlens-paper-summary, #paperlens-token-widget, #paperlens-page-toast, [data-paperlens-ui]";
 
 function insideOwnUi(node: Node): boolean {
   const element = node.nodeType === 1 ? node as Element : node.parentElement;

@@ -155,13 +155,73 @@
       padding: 1px 4px;
     }
     .hidden { display: none; }
+    .password-wrap {
+      align-items: center;
+      display: flex;
+      gap: 6px;
+    }
+    .password-wrap input {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .key-toggle-btn {
+      background: #f5faf7;
+      border: 1px solid rgba(49, 92, 67, 0.22);
+      border-radius: 6px;
+      color: #355040;
+      cursor: pointer;
+      flex: 0 0 auto;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 700;
+      min-width: 52px;
+      padding: 9px 10px;
+    }
+    .key-toggle-btn:hover {
+      background: #eaf4ee;
+    }
+    .preset-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .prompt-preset-btn {
+      background: #f3f9f5;
+      border: 1px solid rgba(35, 129, 76, 0.24);
+      border-radius: 999px;
+      color: #1f673e;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 11.5px;
+      font-weight: 700;
+      padding: 4px 10px;
+    }
+    .prompt-preset-btn:hover {
+      background: #e5f3ea;
+      border-color: rgba(35, 129, 76, 0.45);
+    }
     .btn-row {
+      align-items: center;
       bottom: 0;
       display: flex;
       gap: 9px;
       justify-content: flex-end;
       margin-top: 18px;
       position: sticky;
+    }
+    .unsaved-badge {
+      background: #fff7e6;
+      border: 1px solid rgba(183, 121, 31, 0.35);
+      border-radius: 999px;
+      color: #8c5910;
+      font-size: 11.5px;
+      font-weight: 700;
+      margin-right: auto;
+      padding: 5px 10px;
+    }
+    .btn-primary.has-unsaved {
+      box-shadow: 0 0 0 3px rgba(35, 129, 76, 0.26), 0 10px 22px rgba(35, 129, 76, 0.22);
     }
     .btn {
       border: 1px solid rgba(49, 92, 67, 0.18);
@@ -242,7 +302,10 @@
         </div>
         <div class="field">
           <label for="api-key">API Key</label>
-          <input type="password" id="api-key" placeholder="Enter API key">
+          <div class="password-wrap">
+            <input type="password" id="api-key" placeholder="Enter API key">
+            <button type="button" class="key-toggle-btn" data-toggle-password="api-key" aria-pressed="false">Show</button>
+          </div>
           <div class="help-text" id="translation-key-storage-help">Keys persist only after Save Settings. They are local to this browser profile and are not synced. Storage is separate after extension removal, profile changes, or loading the repository root and dist as separate unpacked extensions.</div>
         </div>
         <div class="field" id="model-field">
@@ -282,9 +345,21 @@
         </div>
         <div class="field field-wide">
           <label for="custom-prompt">Additional Translation Instructions</label>
+          <div class="preset-row" aria-label="Domain presets">
+            <button type="button" class="prompt-preset-btn" data-preset="Keep semiconductor device acronyms, crystal phases, and material formulas verbatim; use Korean semiconductor and materials journal terminology.">+ 소자·재료/물리</button>
+            <button type="button" class="prompt-preset-btn" data-preset="Keep model, architecture, benchmark, and algorithm names verbatim; prefer standard Korean AI/CS academic terminology.">+ AI·컴퓨터공학</button>
+            <button type="button" class="prompt-preset-btn" data-preset="Keep gene, protein, pathway, and cell-line names verbatim; use standard Korean biomedical journal terminology.">+ 바이오·의학</button>
+            <button type="button" class="prompt-preset-btn" data-preset="Prioritize strict technical fidelity over stylistic paraphrasing; preserve every experimental caveat and quantitative qualifier.">+ 정확성·직역 중시</button>
+          </div>
           <textarea id="custom-prompt" rows="4"
             placeholder="e.g., Use formal Korean, Keep 'neural network' in English..."></textarea>
           <div class="help-text">These instructions are included with every translation request.</div>
+        </div>
+        <div class="field field-wide">
+          <label for="glossary">Terminology Glossary</label>
+          <textarea id="glossary" rows="4"
+            placeholder="ferroelectric => 강유전체&#10;tunneling electroresistance => 터널링 전기저항&#10;HZO"></textarea>
+          <div class="help-text">One term per line: use <code>source =&gt; Korean</code> to fix a translation, or write a bare term to keep it verbatim in English.</div>
         </div>
       </div>
     </section>
@@ -333,7 +408,10 @@
       <div id="summary-gemini-fields" class="grid hidden">
         <div class="field">
           <label for="summary-gemini-api-key">Gemini Summary API Key</label>
-          <input type="password" id="summary-gemini-api-key" placeholder="Leave blank to reuse the translation Gemini key">
+          <div class="password-wrap">
+            <input type="password" id="summary-gemini-api-key" placeholder="Leave blank to reuse the translation Gemini key">
+            <button type="button" class="key-toggle-btn" data-toggle-password="summary-gemini-api-key" aria-pressed="false">Show</button>
+          </div>
           <div class="help-text" id="summary-gemini-key-fallback-help">A blank key reuses the saved translation Gemini key.</div>
         </div>
         <div class="field">
@@ -346,7 +424,10 @@
       <div id="summary-vertex-fields" class="grid hidden">
         <div class="field">
           <label for="summary-vertex-api-key">Vertex Summary API Key</label>
-          <input type="password" id="summary-vertex-api-key" placeholder="Leave blank to reuse the translation Vertex key">
+          <div class="password-wrap">
+            <input type="password" id="summary-vertex-api-key" placeholder="Leave blank to reuse the translation Vertex key">
+            <button type="button" class="key-toggle-btn" data-toggle-password="summary-vertex-api-key" aria-pressed="false">Show</button>
+          </div>
           <div class="help-text" id="summary-vertex-key-fallback-help">A blank key reuses the saved translation Vertex key.</div>
         </div>
         <div class="field">
@@ -358,7 +439,10 @@
       <div id="summary-openai-fields" class="grid hidden">
         <div class="field">
           <label for="summary-openai-api-key">OpenAI Summary API Key</label>
-          <input type="password" id="summary-openai-api-key" placeholder="Leave blank to reuse the translation OpenAI key">
+          <div class="password-wrap">
+            <input type="password" id="summary-openai-api-key" placeholder="Leave blank to reuse the translation OpenAI key">
+            <button type="button" class="key-toggle-btn" data-toggle-password="summary-openai-api-key" aria-pressed="false">Show</button>
+          </div>
           <div class="help-text" id="summary-openai-key-fallback-help">A blank key reuses the saved translation OpenAI key.</div>
         </div>
         <div class="field">
@@ -370,7 +454,10 @@
       <div id="summary-anthropic-fields" class="grid hidden">
         <div class="field">
           <label for="summary-anthropic-api-key">Anthropic Summary API Key</label>
-          <input type="password" id="summary-anthropic-api-key" placeholder="Leave blank to reuse the translation Anthropic key">
+          <div class="password-wrap">
+            <input type="password" id="summary-anthropic-api-key" placeholder="Leave blank to reuse the translation Anthropic key">
+            <button type="button" class="key-toggle-btn" data-toggle-password="summary-anthropic-api-key" aria-pressed="false">Show</button>
+          </div>
           <div class="help-text" id="summary-anthropic-key-fallback-help">A blank key reuses the saved translation Anthropic key.</div>
         </div>
         <div class="field">
@@ -387,6 +474,7 @@
     </section>
 
     <div class="btn-row">
+      <span class="unsaved-badge hidden" id="unsaved-indicator" role="status">Unsaved changes</span>
       <button class="btn" id="test-connection-btn">Test saved API connection</button>
       <button class="btn btn-primary" id="save-btn">Save Settings</button>
     </div>

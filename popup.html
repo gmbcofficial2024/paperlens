@@ -5,20 +5,26 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      width: 318px;
+      width: 326px;
       background:
         linear-gradient(180deg, #fbfdfb 0%, #f3f8f4 100%),
         repeating-linear-gradient(90deg, rgba(35, 129, 76, 0.05) 0 1px, transparent 1px 18px);
       color: #17231c;
-      font-family: ui-sans-serif, "Segoe UI", system-ui, sans-serif;
+      font-family: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", ui-sans-serif, "Segoe UI", system-ui, sans-serif;
       font-size: 13px;
       padding: 16px;
     }
     .brand {
       align-items: center;
       display: flex;
+      justify-content: space-between;
       gap: 10px;
-      margin-bottom: 13px;
+      margin-bottom: 12px;
+    }
+    .brand-left {
+      align-items: center;
+      display: flex;
+      gap: 10px;
     }
     .brand-mark {
       background: #23814c;
@@ -27,6 +33,21 @@
       flex: 0 0 auto;
       height: 10px;
       width: 10px;
+    }
+    .tab-badge {
+      background: rgba(35, 129, 76, 0.1);
+      border: 1px solid rgba(35, 129, 76, 0.22);
+      border-radius: 999px;
+      color: #1f6f41;
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 3px 8px;
+      white-space: nowrap;
+    }
+    .tab-badge.muted {
+      background: rgba(96, 107, 101, 0.1);
+      border-color: rgba(96, 107, 101, 0.22);
+      color: #5b6860;
     }
     h1 {
       font-size: 18px;
@@ -43,14 +64,41 @@
       text-transform: uppercase;
     }
     .provider-info {
-      background: rgba(255, 255, 255, 0.82);
+      background: rgba(255, 255, 255, 0.85);
       border: 1px solid rgba(49, 92, 67, 0.15);
       border-radius: 8px;
       color: #4f5d54;
-      font-size: 11px;
+      font-size: 11.5px;
       line-height: 1.45;
-      margin-bottom: 12px;
+      margin-bottom: 11px;
       padding: 9px 10px;
+    }
+    .key-warning {
+      background: #fff5f4;
+      border: 1px solid rgba(180, 35, 24, 0.28);
+      border-radius: 8px;
+      color: #9e271c;
+      font-size: 11.5px;
+      line-height: 1.45;
+      margin-bottom: 11px;
+      padding: 9px 10px;
+    }
+    .key-warning button {
+      appearance: none;
+      background: #b42318;
+      border: 0;
+      border-radius: 6px;
+      color: #fff;
+      cursor: pointer;
+      display: inline-block;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 700;
+      margin-top: 7px;
+      padding: 5px 10px;
+    }
+    .key-warning button:hover {
+      background: #941b12;
     }
     .actions {
       display: grid;
@@ -66,13 +114,18 @@
       font-size: 13px;
       font-weight: 800;
       justify-content: space-between;
-      min-height: 42px;
-      padding: 10px 12px;
+      min-height: 41px;
+      padding: 9px 12px;
       text-align: left;
       transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
       width: 100%;
     }
-    .btn:hover {
+    .btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+      transform: none;
+    }
+    .btn:hover:not(:disabled) {
       transform: translateY(-1px);
     }
     .btn-primary {
@@ -80,15 +133,23 @@
       box-shadow: 0 10px 22px rgba(35, 129, 76, 0.18);
       color: #fff;
     }
-    .btn-primary:hover { background: #1f7444; }
+    .btn-primary:hover:not(:disabled) { background: #1f7444; }
     .btn-secondary {
-      background: rgba(255, 255, 255, 0.88);
+      background: rgba(255, 255, 255, 0.9);
       border-color: rgba(49, 92, 67, 0.16);
       color: #243027;
     }
-    .btn-secondary:hover {
+    .btn-secondary:hover:not(:disabled) {
       background: #ffffff;
       box-shadow: 0 8px 18px rgba(17, 35, 25, 0.08);
+    }
+    .btn-danger {
+      background: #fff5f4;
+      border-color: rgba(180, 35, 24, 0.3);
+      color: #b42318;
+    }
+    .btn-danger:hover:not(:disabled) {
+      background: #feeceb;
     }
     .btn-kbd {
       border: 1px solid rgba(255, 255, 255, 0.34);
@@ -102,6 +163,11 @@
       border-color: rgba(35, 129, 76, 0.16);
       color: #66726b;
     }
+    .btn-danger .btn-kbd {
+      border-color: rgba(180, 35, 24, 0.25);
+      color: #b42318;
+    }
+    .hidden { display: none !important; }
     .shortcut {
       color: #748078;
       font-size: 11px;
@@ -109,41 +175,43 @@
       margin-top: 11px;
       text-align: center;
     }
-    kbd {
-      background: #fff;
-      border: 1px solid rgba(49, 92, 67, 0.18);
-      border-radius: 4px;
-      color: #26362c;
-      font-size: 10px;
-      font-weight: 800;
-      padding: 1px 5px;
-    }
     .status {
       color: #556259;
       font-size: 11px;
       line-height: 1.4;
       min-height: 16px;
-      margin-top: 9px;
+      margin-top: 8px;
       text-align: center;
     }
   </style>
 </head>
 <body>
   <div class="brand">
-    <span class="brand-mark"></span>
-    <div>
-      <h1>PaperLens</h1>
-      <div class="tagline">Research reading layer</div>
+    <div class="brand-left">
+      <span class="brand-mark"></span>
+      <div>
+        <h1>PaperLens</h1>
+        <div class="tagline">Research reading layer</div>
+      </div>
     </div>
+    <span class="tab-badge muted" id="tab-badge">Ready</span>
   </div>
   <div class="provider-info" id="provider-info">Loading...</div>
+  <div class="key-warning hidden" id="key-warning">
+    <div id="key-warning-text">API 키가 설정되지 않았습니다.</div>
+    <button type="button" id="setup-key-btn">설정에서 API 키 입력</button>
+  </div>
   <div class="actions">
     <button class="btn btn-primary" id="translate-btn">
-      <span>Translate Page</span>
+      <span id="translate-label">Translate Page</span>
       <span class="btn-kbd">Alt+T</span>
     </button>
+    <button class="btn btn-danger hidden" id="stop-btn">
+      <span>Stop Translation</span>
+      <span class="btn-kbd">Stop</span>
+    </button>
     <button class="btn btn-secondary" id="summary-btn">
-      <span>Summarize Paper</span>
+      <span id="summary-label">Summarize Paper</span>
       <span class="btn-kbd">Alt+S</span>
     </button>
     <button class="btn btn-secondary" id="settings-btn">

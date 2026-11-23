@@ -1,6 +1,7 @@
 import { hashText } from "../shared/cache";
 import { sendRuntimeMessage } from "../shared/messages";
 import type { StreamMessage, StreamRequest } from "../shared/stream-protocol";
+import { extractStreamingParagraphTranslations } from "../shared/translation-json";
 import type {
   CacheEntry,
   ExtensionSettings,
@@ -21,20 +22,36 @@ import {
   setBlockError,
   toggleBlocksVisibility,
   finalizeBlock,
+  updateStreamingBlock,
 } from "./translation-block";
 import { collectTranslatableSections } from "./translation-targets";
 import {
   addUsage,
+  configureWidget,
   destroyWidget,
   hideWidget,
   setProgress,
+  setWidgetReadingMode,
+  setWidgetRunning,
+  showPageToast,
   showWidget,
+  type ReadingMode,
 } from "./token-widget";
+
+export interface TranslationSessionStatus {
+  active: boolean;
+  visible: boolean;
+  inProgress: boolean;
+  done: number;
+  total: number;
+}
 
 export interface PageTranslationSession {
   toggle(): Promise<void>;
   refresh(): Promise<void>;
+  stop(): void;
   reset(): void;
+  getStatus(): TranslationSessionStatus;
 }
 
 export type RetryScheduler = (
@@ -46,6 +63,7 @@ export interface PageTranslationSessionOptions {
   loadSettings: () => Promise<ExtensionSettings>;
   beforeStart: (settings: ExtensionSettings) => Promise<void>;
   scheduleRetry: RetryScheduler;
+  onRequestSummary?: () => void;
 }
 
 interface PreparedParagraph {
@@ -65,6 +83,7 @@ interface OwnedPort {
   cancel(): void;
 }
 
+const FIRST_BATCH_PARAGRAPHS = 3;
 const MAX_PARAGRAPHS_PER_SECTION = 8;
 const MAX_RETRIES = 3;
 
@@ -114,6 +133,85 @@ function isTerminalProviderError(error: string): boolean {
   );
 }
 
+function isAuthConfigError(error: string): boolean {
+  const normalized = error.toLowerCase();
+  return (
+    /(^|\D)(401|403)(\D|$)/.test(normalized) ||
+    normalized.includes("api key is not configured") ||
+    normalized.includes("unauthorized") ||
+    normalized.includes("authentication failed") ||
+    normalized.includes("invalid api key")
+  );
+}
+
+function isUnresolvedBlock(block: HTMLElement): boolean {
+  return (
+    block.classList.contains("paperlens-skeleton") ||
+    block.classList.contains("paperlens-streaming")
+  );
+}
+
+function measureRect(element: HTMLElement): { top: number; bottom: number; height: number } | null {
+  if (typeof element.getBoundingClientRect !== "function") return null;
+  try {
+    const rect = element.getBoundingClientRect();
+    if (!rect) return null;
+    return { top: rect.top, bottom: rect.bottom, height: rect.height };
+  } catch {
+    return null;
+  }
+}
+
+function sortSectionsByViewportPriority(sections: PreparedSection[]): PreparedSection[] {
+  if (sections.length <= 1) return sections;
+  const viewportHeight = typeof window !== "undefined" && typeof window.innerHeight === "number"
+    ? window.innerHeight
+    : 0;
+  if (viewportHeight <= 0) return sections;
+
+  const measured = sections.map((section, index) => {
+    const first = section.paragraphs[0]?.element;
+    const rect = first ? measureRect(first) : null;
+    return { section, index, rect };
+  });
+
+  const hasRealLayout = measured.some(
+    ({ rect }) => rect !== null && (rect.top !== 0 || rect.bottom !== 0 || rect.height !== 0),
+  );
+  if (!hasRealLayout) return sections;
+
+  const rank = (rect: { top: number; bottom: number; height: number } | null): [number, number] => {
+    if (!rect) return [3, 0];
+    if (rect.bottom >= 0 && rect.top <= viewportHeight) {
+      return [0, Math.max(0, rect.top)];
+    }
+    if (rect.top > viewportHeight) {
+      return [1, rect.top - viewportHeight];
+    }
+    return [2, -rect.bottom];
+  };
+
+  return measured
+    .sort((a, b) => {
+      const [tierA, distA] = rank(a.rect);
+      const [tierB, distB] = rank(b.rect);
+      if (tierA !== tierB) return tierA - tierB;
+      if (distA !== distB) return distA - distB;
+      return a.index - b.index;
+    })
+    .map((entry) => entry.section);
+}
+
+function isElementInViewport(element: HTMLElement): boolean {
+  const viewportHeight = typeof window !== "undefined" && typeof window.innerHeight === "number"
+    ? window.innerHeight
+    : 0;
+  if (viewportHeight <= 0) return false;
+  const rect = measureRect(element);
+  if (!rect || (rect.top === 0 && rect.bottom === 0 && rect.height === 0)) return false;
+  return rect.bottom >= 0 && rect.top <= viewportHeight;
+}
+
 async function getCachedFromStorage(hash: string): Promise<CacheEntry | null> {
   const response = await sendRuntimeMessage({ type: "cache/get", hash });
   return response.ok && "entry" in response ? response.entry : null;
@@ -150,6 +248,11 @@ class PageTranslationSessionImpl implements PageTranslationSession {
   private refreshPending = false;
   private paragraphIndex = 0;
   private generation = 0;
+  private runToken = 0;
+  private completedCount = 0;
+  private totalCount = 0;
+  private lastVisibleMode: Exclude<ReadingMode, "source"> = "bilingual";
+  private authToastShownForRun = false;
   private readonly ownedPorts = new Set<OwnedPort>();
   private readonly retryCancellations = new Set<() => void>();
   private readonly alignmentStore = new Map<string, SentenceAlignment[]>();
@@ -157,10 +260,44 @@ class PageTranslationSessionImpl implements PageTranslationSession {
 
   constructor(private readonly options: PageTranslationSessionOptions) {}
 
+  getStatus(): TranslationSessionStatus {
+    return {
+      active: this.active,
+      visible: this.visible,
+      inProgress: this.inProgress,
+      done: this.completedCount,
+      total: this.totalCount,
+    };
+  }
+
+  private bindWidgetCallbacks(): void {
+    configureWidget({
+      onStop: () => this.stop(),
+      onReadingModeChange: (mode) => this.handleReadingModeChange(mode),
+      ...(this.options.onRequestSummary ? { onSummary: this.options.onRequestSummary } : {}),
+    });
+  }
+
+  private handleReadingModeChange(mode: ReadingMode): void {
+    if (!this.active) return;
+    if (mode === "source") {
+      this.visible = false;
+      toggleBlocksVisibility(false);
+      return;
+    }
+    this.lastVisibleMode = mode;
+    if (!this.visible) {
+      this.visible = true;
+      toggleBlocksVisibility(true);
+      void this.refresh();
+    }
+  }
+
   async toggle(): Promise<void> {
     if (this.active && this.visible) {
       this.visible = false;
       toggleBlocksVisibility(false);
+      setWidgetReadingMode("source");
       hideWidget();
       return;
     }
@@ -168,6 +305,7 @@ class PageTranslationSessionImpl implements PageTranslationSession {
     if (this.active && !this.visible) {
       this.visible = true;
       toggleBlocksVisibility(true);
+      setWidgetReadingMode(this.lastVisibleMode);
       showWidget();
       await this.refresh();
       return;
@@ -186,8 +324,47 @@ class PageTranslationSessionImpl implements PageTranslationSession {
     await this.runPass(false);
   }
 
+  stop(): void {
+    if (!this.inProgress && this.ownedPorts.size === 0 && this.retryCancellations.size === 0) {
+      return;
+    }
+    this.runToken++;
+
+    for (const cancel of this.retryCancellations) {
+      cancel();
+    }
+    this.retryCancellations.clear();
+
+    for (const owner of [...this.ownedPorts]) {
+      owner.cancel();
+    }
+    this.ownedPorts.clear();
+
+    for (const paragraph of [...this.ownedParagraphs]) {
+      if (isUnresolvedBlock(paragraph.block)) {
+        this.releaseParagraph(paragraph);
+      }
+    }
+
+    this.inProgress = false;
+    this.refreshPending = false;
+
+    if (this.ownedParagraphs.size === 0) {
+      this.active = false;
+      this.visible = true;
+      this.completedCount = 0;
+      this.totalCount = 0;
+      destroyWidget();
+      showPageToast("번역을 중단했습니다.");
+    } else {
+      setWidgetRunning(false, true);
+      showPageToast("번역을 중단했습니다. 완료된 문단은 유지됩니다.");
+    }
+  }
+
   reset(): void {
     this.generation++;
+    this.runToken++;
 
     for (const cancel of this.retryCancellations) {
       cancel();
@@ -222,48 +399,65 @@ class PageTranslationSessionImpl implements PageTranslationSession {
     this.inProgress = false;
     this.refreshPending = false;
     this.paragraphIndex = 0;
+    this.completedCount = 0;
+    this.totalCount = 0;
+    this.lastVisibleMode = "bilingual";
+    this.authToastShownForRun = false;
   }
 
   private async runPass(initialStart: boolean): Promise<void> {
     this.inProgress = true;
     const runGeneration = this.generation;
+    const activeRunToken = ++this.runToken;
+    this.authToastShownForRun = false;
 
     try {
       const settings = await this.options.loadSettings();
-      if (!this.isCurrent(runGeneration)) return;
+      if (!this.isCurrentRun(runGeneration, activeRunToken)) return;
 
       if (initialStart) {
         await this.options.beforeStart(settings);
-        if (!this.isCurrent(runGeneration)) return;
+        if (!this.isCurrentRun(runGeneration, activeRunToken)) return;
       }
 
-      const sections = this.prepareSections(runGeneration);
+      const sections = sortSectionsByViewportPriority(this.prepareSections(runGeneration));
       if (sections.length === 0) {
-        if (initialStart) console.log("PaperLens: no paragraphs found");
+        if (initialStart) {
+          console.log("PaperLens: no paragraphs found");
+          showPageToast("이 페이지에서 번역할 본문을 찾지 못했습니다.");
+        }
         return;
       }
 
+      this.completedCount = 0;
+      this.totalCount = sections.length;
       if (initialStart) {
         this.active = true;
         this.visible = true;
+        this.bindWidgetCallbacks();
         setProgress(0, sections.length);
+        setWidgetRunning(true);
         showWidget();
       } else {
         setProgress(0, sections.length);
+        setWidgetRunning(true);
       }
 
       let completedSections = 0;
       const tasks = sections.map((section) => async () => {
-        await this.translateSection(section, settings, runGeneration);
-        if (!this.isCurrent(runGeneration) || section.progressSettled) return;
+        if (!this.isCurrentRun(runGeneration, activeRunToken)) return;
+        await this.translateSection(section, settings, runGeneration, activeRunToken);
+        if (!this.isCurrentRun(runGeneration, activeRunToken) || section.progressSettled) return;
         section.progressSettled = true;
         completedSections++;
+        this.completedCount = completedSections;
         setProgress(completedSections, sections.length);
       });
       await runWithConcurrency(tasks, settings.maxConcurrency);
     } finally {
-      if (this.isCurrent(runGeneration)) {
+      if (this.isCurrentRun(runGeneration, activeRunToken)) {
         this.inProgress = false;
+        setWidgetRunning(false, false);
         if (this.refreshPending) {
           this.refreshPending = false;
           void this.refresh();
@@ -274,6 +468,10 @@ class PageTranslationSessionImpl implements PageTranslationSession {
 
   private isCurrent(runGeneration: number): boolean {
     return runGeneration === this.generation;
+  }
+
+  private isCurrentRun(runGeneration: number, activeRunToken: number): boolean {
+    return runGeneration === this.generation && activeRunToken === this.runToken;
   }
 
   private releaseParagraph(paragraph: PreparedParagraph): void {
@@ -294,6 +492,8 @@ class PageTranslationSessionImpl implements PageTranslationSession {
       if (!accepted.has(paragraph.element)) this.releaseParagraph(paragraph);
     }
 
+    let usedFastFirstBatch = false;
+
     for (const section of targetSections) {
       const validParagraphs = section.paragraphs
         .map((element) => ({ element, text: extractParagraphText(element) }))
@@ -306,12 +506,20 @@ class PageTranslationSessionImpl implements PageTranslationSession {
           return text.trim().length > 0;
         });
 
-      for (
-        let start = 0;
-        start < validParagraphs.length;
-        start += MAX_PARAGRAPHS_PER_SECTION
-      ) {
-        const chunk = validParagraphs.slice(start, start + MAX_PARAGRAPHS_PER_SECTION);
+      let start = 0;
+      while (start < validParagraphs.length) {
+        const remaining = validParagraphs.length - start;
+        const startsInView = isElementInViewport(validParagraphs[start].element);
+        const batchSize =
+          !usedFastFirstBatch && remaining > 4 && (startsInView || prepared.length === 0)
+            ? FIRST_BATCH_PARAGRAPHS
+            : MAX_PARAGRAPHS_PER_SECTION;
+        if (batchSize === FIRST_BATCH_PARAGRAPHS) {
+          usedFastFirstBatch = true;
+        }
+        const chunk = validParagraphs.slice(start, start + batchSize);
+        start += chunk.length;
+
         const paragraphs = chunk.map(({ element, text }) => {
           const id = `pl-${runGeneration}-${this.paragraphIndex++}`;
           element.setAttribute("data-paperlens-id", id);
@@ -381,7 +589,7 @@ class PageTranslationSessionImpl implements PageTranslationSession {
 
   private resetSectionBlocks(section: PreparedSection): void {
     for (const paragraph of section.paragraphs) {
-      paragraph.block.classList.remove("paperlens-error");
+      paragraph.block.classList.remove("paperlens-error", "paperlens-streaming");
       paragraph.block.classList.add("paperlens-skeleton");
       paragraph.block.textContent = "Translating...";
     }
@@ -393,7 +601,7 @@ class PageTranslationSessionImpl implements PageTranslationSession {
     workingRetry: () => void,
   ): void {
     const unresolved = section.paragraphs.filter((paragraph) =>
-      paragraph.block.classList.contains("paperlens-skeleton"),
+      isUnresolvedBlock(paragraph.block),
     );
     unresolved.forEach((paragraph, index) => {
       setBlockError(
@@ -402,28 +610,35 @@ class PageTranslationSessionImpl implements PageTranslationSession {
         index === 0 ? workingRetry : undefined,
       );
     });
+    if (isAuthConfigError(error) && !this.authToastShownForRun) {
+      this.authToastShownForRun = true;
+      showPageToast("API 키 설정이 필요합니다. 확장 아이콘의 Settings에서 키를 확인하세요.", "error");
+    }
   }
 
   private async translateSection(
     section: PreparedSection,
     settings: ExtensionSettings,
     runGeneration: number,
+    activeRunToken: number,
   ): Promise<void> {
     const paragraphTexts = section.paragraphs.map(({ text }) => text);
     const paragraphIds = section.paragraphs.map(({ id }) => id);
+    const glossary = settings.glossary?.trim() || undefined;
     const sectionHash = await hashText(JSON.stringify({
       version: 2,
       provider: settings.currentProvider,
       model: settings.providerSettings[settings.currentProvider].model,
       configurationKey: settings.translationConfigKey,
       customPrompt: settings.customPrompt,
+      ...(glossary ? { glossary } : {}),
       paragraphTexts,
     }));
-    if (!this.isCurrent(runGeneration)) return;
+    if (!this.isCurrentRun(runGeneration, activeRunToken)) return;
 
     if (settings.cacheEnabled) {
       const cached = await getCachedFromStorage(sectionHash);
-      if (!this.isCurrent(runGeneration)) return;
+      if (!this.isCurrentRun(runGeneration, activeRunToken)) return;
       if (isUsableCacheEntry(cached, section.paragraphs.length)) {
         this.applySectionResults(section, cached.paragraphs);
         addUsage(undefined);
@@ -438,6 +653,7 @@ class PageTranslationSessionImpl implements PageTranslationSession {
       sectionHash,
       settings,
       runGeneration,
+      activeRunToken,
     );
   }
 
@@ -448,9 +664,10 @@ class PageTranslationSessionImpl implements PageTranslationSession {
     sectionHash: string,
     settings: ExtensionSettings,
     runGeneration: number,
+    activeRunToken: number,
   ): Promise<void> {
     return new Promise<void>((resolve) => {
-      if (!this.isCurrent(runGeneration)) {
+      if (!this.isCurrentRun(runGeneration, activeRunToken)) {
         resolve();
         return;
       }
@@ -461,6 +678,8 @@ class PageTranslationSessionImpl implements PageTranslationSession {
       let terminalReceived = false;
       let promiseSettled = false;
       let intentionalTerminal = false;
+      let streamBuffer = "";
+      let lastStreamed: Array<string | undefined> = [];
       const ownedRetryCancellations = new Set<() => void>();
       let owner!: OwnedPort;
 
@@ -490,19 +709,23 @@ class PageTranslationSessionImpl implements PageTranslationSession {
       owner = { cancel: finish };
       this.ownedPorts.add(owner);
 
+      const glossary = settings.glossary?.trim() || undefined;
       const sendRequest = (): void => {
         if (
-          !this.isCurrent(runGeneration) ||
+          !this.isCurrentRun(runGeneration, activeRunToken) ||
           terminalReceived ||
           promiseSettled
         ) {
           return;
         }
+        streamBuffer = "";
+        lastStreamed = [];
         port.postMessage({
           type: "stream/translate-section",
           paragraphTexts,
           paragraphIds,
           customPrompt: settings.customPrompt,
+          ...(glossary ? { glossary } : {}),
           ...(settings.translationConfigKey ? { configurationKey: settings.translationConfigKey } : {}),
         } satisfies StreamRequest);
       };
@@ -515,7 +738,7 @@ class PageTranslationSessionImpl implements PageTranslationSession {
           ownedRetryCancellations.delete(cancelRetry);
         };
         cancelScheduled = this.options.scheduleRetry(() => {
-          if (!this.isCurrent(runGeneration)) return;
+          if (!this.isCurrentRun(runGeneration, activeRunToken)) return;
           this.retryCancellations.delete(cancelRetry);
           ownedRetryCancellations.delete(cancelRetry);
           retryPending = false;
@@ -536,6 +759,7 @@ class PageTranslationSessionImpl implements PageTranslationSession {
           sectionHash,
           settings,
           runGeneration,
+          this.runToken,
         );
       };
 
@@ -567,12 +791,24 @@ class PageTranslationSessionImpl implements PageTranslationSession {
       };
 
       port.onMessage.addListener((message: StreamMessage) => {
-        if (!this.isCurrent(runGeneration)) return;
+        if (!this.isCurrentRun(runGeneration, activeRunToken)) return;
         if (terminalReceived || promiseSettled) return;
 
         switch (message.type) {
-          case "stream-chunk":
+          case "stream-chunk": {
+            streamBuffer += message.delta;
+            const partials = extractStreamingParagraphTranslations(streamBuffer);
+            const limit = Math.min(partials.length, section.paragraphs.length);
+            for (let index = 0; index < limit; index += 1) {
+              const text = partials[index];
+              if (!text || text === lastStreamed[index]) continue;
+              const paragraph = section.paragraphs[index];
+              if (!this.ownedParagraphs.has(paragraph) || !paragraph.element.isConnected) continue;
+              lastStreamed[index] = text;
+              updateStreamingBlock(paragraph.block, text);
+            }
             break;
+          }
           case "stream-section-done": {
             completeSuccessfully(message.paragraphs, message.usage);
             break;
@@ -617,7 +853,7 @@ class PageTranslationSessionImpl implements PageTranslationSession {
       });
 
       port.onDisconnect.addListener(() => {
-        if (!this.isCurrent(runGeneration)) return;
+        if (!this.isCurrentRun(runGeneration, activeRunToken)) return;
         if (promiseSettled || intentionalTerminal || terminalReceived) return;
 
         this.ownedPorts.delete(owner);

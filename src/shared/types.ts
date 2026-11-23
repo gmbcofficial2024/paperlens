@@ -17,7 +17,20 @@ export interface ExtensionSettings {
   cacheEnabled: boolean;
   maxConcurrency: number;
   customPrompt: string;
+  glossary?: string;
   summary: SummarySettings;
+}
+
+export interface TabReadingStatus {
+  injectable: boolean;
+  loaded: boolean;
+  active: boolean;
+  visible: boolean;
+  inProgress: boolean;
+  done: number;
+  total: number;
+  hasSummary: boolean;
+  summaryRunning: boolean;
 }
 
 export interface SummarySettings {

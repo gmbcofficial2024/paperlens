@@ -10,7 +10,9 @@ import { observeReadingChanges } from "./reading-observer";
 import {
   createSummaryBlock,
   finalizeSummaryBlock,
+  hasSummaryBlock,
   removeSummaryBlock,
+  scrollToSummaryBlock,
   setSummaryBlockError,
   setSummaryBlockScope,
   setSummaryBlockSourceChanged,
@@ -20,12 +22,21 @@ import { extractParagraphText } from "./text-extraction";
 import {
   createPageTranslationSession,
   type RetryScheduler,
+  type TranslationSessionStatus,
 } from "./translation-session";
-import { addUsage } from "./token-widget";
+import { addUsage, setWidgetSummaryState } from "./token-widget";
+
+export interface PageReadingStatus extends TranslationSessionStatus {
+  hasSummary: boolean;
+  summaryRunning: boolean;
+}
 
 export interface PageReadingSession {
   toggleTranslation(): Promise<void>;
+  stopTranslation(): void;
   summarize(): Promise<void>;
+  focusOrSummarize(): Promise<void>;
+  getStatus(): PageReadingStatus;
   reset(): void;
 }
 
@@ -56,16 +67,30 @@ function normalizeSummaryInputText(text: string): string {
     .trim();
 }
 
-function collectSummarySource(): {text: string; kind: "paper" | "article"; scope: ReadingScope; anchor?: Element} {
+function collectSummarySource(): { text: string; kind: "paper" | "article"; scope: ReadingScope; anchor?: Element } {
   const plainTextSection = collectBrowserPlainTextSummarySection(document);
   if (plainTextSection) {
     const fullText = normalizeSummaryInputText(plainTextSection.paragraphs[0] ?? "");
-    return {text: fullText ? serializeSummaryDocument([
-      {
-        heading: null,
-        paragraphs: [fullText],
+    return {
+      text: fullText
+        ? serializeSummaryDocument([
+            {
+              heading: null,
+              paragraphs: [fullText],
+            },
+          ])
+        : "",
+      kind: "paper",
+      anchor: document.body.querySelector("pre") ?? undefined,
+      scope: {
+        paragraphCount: fullText ? 1 : 0,
+        sectionCount: fullText ? 1 : 0,
+        captionCount: 0,
+        tableCount: 0,
+        partial: false,
+        reasons: ["브라우저에 로드된 텍스트 전체"],
       },
-    ]) : "", kind: "paper", anchor: document.body.querySelector("pre") ?? undefined, scope: {paragraphCount: fullText ? 1 : 0, sectionCount: fullText ? 1 : 0, captionCount: 0, tableCount: 0, partial: false, reasons: ["브라우저에 로드된 텍스트 전체"]} };
+    };
   }
 
   const reading = collectReadingDocument({ includeTranslatedParagraphs: true });
@@ -78,7 +103,12 @@ function collectSummarySource(): {text: string; kind: "paper" | "article"; scope
     }))
     .filter((section) => section.paragraphs.length > 0);
 
-  return {text: serializeSummaryDocument(summarySections), kind: reading.kind, scope: reading.scope, anchor: reading.sections[0]?.paragraphs[0]};
+  return {
+    text: serializeSummaryDocument(summarySections),
+    kind: reading.kind,
+    scope: reading.scope,
+    anchor: reading.sections[0]?.paragraphs[0],
+  };
 }
 
 export function createPageReadingSession(
@@ -94,9 +124,13 @@ export function createPageReadingSession(
   let summaryBlock: HTMLElement | null = null;
   let kindOverride: "paper" | "article" | undefined;
 
+  const syncSummaryHud = (): void => {
+    setWidgetSummaryState(Boolean(summaryBlock?.isConnected) || hasSummaryBlock(), Boolean(activeSummaryRun));
+  };
+
   const markSummaryChanged = (): void => {
     if (summaryBlock?.isConnected) {
-      setSummaryBlockSourceChanged(summaryBlock, () => {void summarize();});
+      setSummaryBlockSourceChanged(summaryBlock, () => { void summarize(); });
     }
   };
 
@@ -111,7 +145,7 @@ export function createPageReadingSession(
       }
       // Equal text can belong to replacement DOM nodes. Translation reconciles
       // node ownership independently; it skips unchanged surviving anchors.
-      void translationSession.refresh().catch(error => console.error("PaperLens source refresh:", error));
+      void translationSession.refresh().catch((error) => console.error("PaperLens source refresh:", error));
     });
   };
 
@@ -139,6 +173,13 @@ export function createPageReadingSession(
     return completion;
   };
 
+  const focusOrSummarize = (): Promise<void> => {
+    if (scrollToSummaryBlock()) {
+      return Promise.resolve();
+    }
+    return summarize();
+  };
+
   const translationSession = createPageTranslationSession({
     loadSettings,
     beforeStart: async (settings) => {
@@ -147,6 +188,7 @@ export function createPageReadingSession(
       }
     },
     scheduleRetry: options.scheduleRetry,
+    onRequestSummary: () => { void focusOrSummarize(); },
   });
 
   const summarize = (): Promise<void> => {
@@ -158,18 +200,28 @@ export function createPageReadingSession(
 
     const initialSource = collectSummarySource();
     let settleCancellation!: () => void;
-    const cancellation = new Promise<void>(resolve => {settleCancellation = resolve;});
+    const cancellation = new Promise<void>((resolve) => { settleCancellation = resolve; });
     const run: SummaryRun = {
       generation: runGeneration,
       block: createSummaryBlock({
         insertionAnchor: initialSource.anchor,
+        title: getPaperTitle(),
         kind: kindOverride ?? initialSource.kind,
-        onRetry: () => {void summarize();},
-        onKindChange: kind => {kindOverride = kind; markSummaryChanged();},
+        onRetry: () => { void summarize(); },
+        onKindChange: (kind) => { kindOverride = kind; markSummaryChanged(); },
         onCancel: () => {
           run.cancelled = true;
           if (activeSummaryRun === run) activeSummaryRun = null;
           setSummaryBlockCancelled(run.block);
+          syncSummaryHud();
+          settleCancellation();
+        },
+        onClose: () => {
+          run.cancelled = true;
+          if (activeSummaryRun === run) activeSummaryRun = null;
+          if (summaryBlock === run.block) summaryBlock = null;
+          completedSourceText = null;
+          syncSummaryHud();
           settleCancellation();
         },
       }),
@@ -179,6 +231,7 @@ export function createPageReadingSession(
     activeSummaryRun = run;
     summaryBlock = run.block;
     setSummaryBlockScope(run.block, initialSource.scope);
+    syncSummaryHud();
 
     const isCurrent = (): boolean =>
       !run.cancelled && run.generation === summaryGeneration && activeSummaryRun === run;
@@ -214,7 +267,9 @@ export function createPageReadingSession(
         finalizeSummaryBlock(run.block, response.result.summary);
         completedSourceText = captured.text;
         const currentSource = collectSummarySource();
-        if (currentSource.text !== captured.text || (kindOverride ?? currentSource.kind) !== capturedKind) markSummaryChanged();
+        if (currentSource.text !== captured.text || (kindOverride ?? currentSource.kind) !== capturedKind) {
+          markSummaryChanged();
+        }
         if (abandonIfStale()) return;
         addUsage(response.result.usage);
       } catch (error) {
@@ -227,6 +282,7 @@ export function createPageReadingSession(
         if (activeSummaryRun === run) {
           activeSummaryRun = null;
         }
+        syncSummaryHud();
       }
     })();
     run.completion = Promise.race([execution, cancellation]);
@@ -235,8 +291,21 @@ export function createPageReadingSession(
   };
 
   return {
-    toggleTranslation: () => {ensureObserver(); return translationSession.toggle();},
+    toggleTranslation: () => {
+      ensureObserver();
+      syncSummaryHud();
+      return translationSession.toggle();
+    },
+    stopTranslation: () => {
+      translationSession.stop();
+    },
     summarize,
+    focusOrSummarize,
+    getStatus: () => ({
+      ...translationSession.getStatus(),
+      hasSummary: Boolean(summaryBlock?.isConnected) || hasSummaryBlock(),
+      summaryRunning: Boolean(activeSummaryRun),
+    }),
     reset: () => {
       summaryGeneration++;
       stopObserving?.();

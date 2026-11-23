@@ -3,6 +3,7 @@ import { isSourceHidden } from "./text-extraction";
 
 const SENTENCE_CLASS = "paperlens-sentence";
 const HIGHLIGHT_CLASS = "paperlens-highlight";
+const PINNED_CLASS = "paperlens-highlight-pinned";
 const GAP_CLASS = "paperlens-sentence-gap"; // unmatched text, no cross-highlight
 
 const SKIP_WRAP_SUBTREE_SELECTOR = [
@@ -428,6 +429,8 @@ export function enableCrossHighlight(): void {
 
   document.addEventListener("mouseover", onMouseOver, true);
   document.addEventListener("mouseout", onMouseOut, true);
+  document.addEventListener("click", onDocumentClick, true);
+  document.addEventListener("keydown", onKeyDown, true);
 }
 
 function getSentenceSpan(e: Event): HTMLElement | null {
@@ -438,6 +441,14 @@ function getSentenceSpan(e: Event): HTMLElement | null {
 
 let activePairId: string | null = null;
 let activeIdx: string | null = null;
+let pinnedPairId: string | null = null;
+let pinnedIdx: string | null = null;
+
+function querySentencePair(pairId: string, idx: string): NodeListOf<Element> {
+  return document.querySelectorAll(
+    `[data-paperlens-pair="${CSS.escape(pairId)}"] [data-sentence-idx="${CSS.escape(idx)}"]`,
+  );
+}
 
 function onMouseOver(e: Event): void {
   const span = getSentenceSpan(e);
@@ -459,10 +470,7 @@ function onMouseOver(e: Event): void {
   activePairId = pairId;
   activeIdx = idx;
 
-  const matched = document.querySelectorAll(
-    `[data-paperlens-pair="${CSS.escape(pairId)}"] [data-sentence-idx="${CSS.escape(idx)}"]`,
-  );
-  matched.forEach((el) => el.classList.add(HIGHLIGHT_CLASS));
+  querySentencePair(pairId, idx).forEach((el) => el.classList.add(HIGHLIGHT_CLASS));
 }
 
 function onMouseOut(e: Event): void {
@@ -485,16 +493,61 @@ function onMouseOut(e: Event): void {
   clearActive();
 }
 
+function onDocumentClick(e: Event): void {
+  const target = e.target as HTMLElement | null;
+  if (!target?.closest) return;
+
+  // Never intercept interactive publisher controls like citation links or buttons.
+  if (target.closest("a, button, input, select, textarea")) return;
+
+  // Keep current pin intact while the user clicks a text selection rather than toggling.
+  const selectionText = typeof window !== "undefined" ? window.getSelection?.()?.toString()?.trim() : "";
+  if (selectionText) return;
+
+  const span = getSentenceSpan(e);
+  if (!span) {
+    clearPinned();
+    return;
+  }
+
+  const idx = span.getAttribute("data-sentence-idx");
+  const pairId = span.closest("[data-paperlens-pair]")?.getAttribute("data-paperlens-pair");
+  if (idx === null || !pairId) return;
+
+  if (pinnedPairId === pairId && pinnedIdx === idx) {
+    clearPinned();
+    return;
+  }
+
+  clearPinned();
+  pinnedPairId = pairId;
+  pinnedIdx = idx;
+  querySentencePair(pairId, idx).forEach((el) => el.classList.add(PINNED_CLASS));
+}
+
+function onKeyDown(e: Event): void {
+  const ke = e as KeyboardEvent;
+  if (ke.key === "Escape" && pinnedPairId !== null) {
+    clearPinned();
+  }
+}
+
 function clearActive(): void {
   if (activePairId === null || activeIdx === null) return;
 
-  const matched = document.querySelectorAll(
-    `[data-paperlens-pair="${CSS.escape(activePairId)}"] [data-sentence-idx="${CSS.escape(activeIdx)}"]`,
-  );
-  matched.forEach((el) => el.classList.remove(HIGHLIGHT_CLASS));
+  querySentencePair(activePairId, activeIdx).forEach((el) => el.classList.remove(HIGHLIGHT_CLASS));
 
   activePairId = null;
   activeIdx = null;
+}
+
+function clearPinned(): void {
+  if (pinnedPairId === null || pinnedIdx === null) return;
+
+  querySentencePair(pinnedPairId, pinnedIdx).forEach((el) => el.classList.remove(PINNED_CLASS));
+
+  pinnedPairId = null;
+  pinnedIdx = null;
 }
 
 // ---------------------------------------------------------------------------
@@ -515,8 +568,9 @@ function elementsWithin(root: ParentNode, selector: string): Element[] {
 
 function clearHighlightsWithin(root: ParentNode): void {
   clearActive();
-  elementsWithin(root, `.${HIGHLIGHT_CLASS}`).forEach((el) => {
-    el.classList.remove(HIGHLIGHT_CLASS);
+  clearPinned();
+  elementsWithin(root, `.${HIGHLIGHT_CLASS}, .${PINNED_CLASS}`).forEach((el) => {
+    el.classList.remove(HIGHLIGHT_CLASS, PINNED_CLASS);
   });
 }
 
